@@ -79,6 +79,38 @@ kCombinations(k, S) = collect(combinations(S, k))
 	return perms[sums .== sum_value]
 end
 
+# ╔═╡ e3725bdd-d0db-4a34-adcc-3774416ed098
+md"""
+## `unionProduct`
+"""
+
+# ╔═╡ 7799afff-2274-4146-b89b-95497fb64146
+function unionProduct(
+	S₁::Vector{Vector{Int}}, 
+	S₂::Vector{Vector{Int}}
+)::Vector{Vector{Int}}
+	if S₁ == [Int[]] || S₂ == [Int[]]
+		return [Int[]]
+	else
+		@error "case defined on pg 14; implementation discussed in section 3.3.4"
+	end
+end
+
+# ╔═╡ bf03048f-7750-48a4-ab6a-d79846df59f9
+@test unionProduct([Int[]], [Int[]]) == [Int[]]
+
+# ╔═╡ d8b19bae-2cce-43e0-9b76-244404d81c6b
+@test unionProduct([[2]], [Int[]]) == [Int[]]
+
+# ╔═╡ 7dd240e5-82b5-41db-9afd-e23fb2383ae1
+@test unionProduct([[2]], [[6, 7]]) == Set(Int[])
+
+# ╔═╡ c284f873-12fe-4e45-8a75-0936c9a5bc19
+md"""
+!!! danger "Add Tests"
+	Add tests corresponding to examples show on pg18: eqn's 14-17
+"""
+
 # ╔═╡ 26814357-e102-4908-83b1-edce97094603
 md"""
 # Example Setup
@@ -163,12 +195,6 @@ md"""
 # ╔═╡ ca0dfce1-82d9-42d3-b273-d9f9261ba451
 T_from_algorithm = @btime combination_tree(1, 4, G)
 
-# ╔═╡ 54aba875-14c6-4bd5-804d-0414c8b3ef91
-T_opt = @btime combination_tree_opt(1, 4, G)
-
-# ╔═╡ a06b7d82-c52b-4045-8fe0-b045a4b28180
-@test T_from_algorithm == T_opt
-
 # ╔═╡ 9c3abb0b-5d5f-4108-839a-f951bd92d847
 graphplot(
 	T_from_algorithm; 
@@ -244,7 +270,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "f1c8902c83b2cddf0b5fb610819edda9302b1b3b"
+project_hash = "6446d1d0a79f2d89d30ee79c3a6e0c26476a9194"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1613,6 +1639,12 @@ version = "3.5.0+0"
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
+# ╟─e3725bdd-d0db-4a34-adcc-3774416ed098
+# ╠═7799afff-2274-4146-b89b-95497fb64146
+# ╠═bf03048f-7750-48a4-ab6a-d79846df59f9
+# ╠═d8b19bae-2cce-43e0-9b76-244404d81c6b
+# ╠═7dd240e5-82b5-41db-9afd-e23fb2383ae1
+# ╠═c284f873-12fe-4e45-8a75-0936c9a5bc19
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
@@ -1624,8 +1656,6 @@ version = "3.5.0+0"
 # ╟─afb9b973-bbf3-4db6-9a1e-77c7d5d36771
 # ╟─0e04854a-7a25-4588-88aa-0c9ab12a8bd0
 # ╠═ca0dfce1-82d9-42d3-b273-d9f9261ba451
-# ╠═54aba875-14c6-4bd5-804d-0414c8b3ef91
-# ╠═a06b7d82-c52b-4045-8fe0-b045a4b28180
 # ╠═9c3abb0b-5d5f-4108-839a-f951bd92d847
 # ╠═1c3fa5eb-bf0d-4db1-9445-030c7168a5da
 # ╠═4a0b0efc-759d-486a-97b5-9868e99f602f
