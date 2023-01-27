@@ -140,7 +140,7 @@ G = begin
 	add_edge!(graph, 2, 4)
 	add_edge!(graph, 3, 4)
 	graph
-end
+end;
 
 # ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
 graphplot(
@@ -177,7 +177,7 @@ T_manual = begin
 	add_edge!(graph, 3, 4)
 	add_edge!(graph, 6, 7)
 	graph
-end
+end;
 
 # ╔═╡ fc0851cd-c0a1-4fbb-9790-0074d35601f0
 graphplot(
@@ -216,12 +216,6 @@ graphplot(
 	layout=GraphMakie.Buchheim()
 )
 
-# ╔═╡ 1c3fa5eb-bf0d-4db1-9445-030c7168a5da
-function vertex_relation(t1, v1, t2, v2)
-	return get_prop(t1, v1, :vertex) == get_prop(t2, v2, :vertex) &&
-		get_prop(t1, v1, :new) == get_prop(t2, v2, :new)
-end
-
 # ╔═╡ 4a0b0efc-759d-486a-97b5-9868e99f602f
 function isomorphic_trees(t1, t2)
 	isomorphic = false
@@ -229,13 +223,15 @@ function isomorphic_trees(t1, t2)
 		SimpleGraph(t1), 
 		SimpleGraph(t2), 
 		IsomorphismProblem();
-		vertex_relation=(v1, v2)->vertex_relation(t1, v1, t2, v2)
+		vertex_relation=(v1, v2) -> 
+			get_prop(t1, v1, :vertex) == get_prop(t2, v2, :vertex) &&
+			get_prop(t1, v1, :new) == get_prop(t2, v2, :new)
 	) do vmap
 		isomorphic = true
 		return false
 	end
 	return isomorphic
-end
+end;
 
 # ╔═╡ a0290968-0909-45f8-ade9-b58e87c15626
 @test isomorphic_trees(T_from_algorithm, T_manual)
@@ -283,7 +279,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "f7cf6facea70e55de046a49bbe00beefa2cac443"
+project_hash = "20a605b5db446c5f5f0a6b09ae78615c0e528c2d"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1661,16 +1657,15 @@ version = "3.5.0+0"
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
-# ╠═fb1033e9-85e3-4b38-97b0-052d20596bd4
+# ╟─fb1033e9-85e3-4b38-97b0-052d20596bd4
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
-# ╠═fc0851cd-c0a1-4fbb-9790-0074d35601f0
+# ╟─fc0851cd-c0a1-4fbb-9790-0074d35601f0
 # ╟─afb9b973-bbf3-4db6-9a1e-77c7d5d36771
 # ╟─0e04854a-7a25-4588-88aa-0c9ab12a8bd0
 # ╠═ca0dfce1-82d9-42d3-b273-d9f9261ba451
 # ╟─9c3abb0b-5d5f-4108-839a-f951bd92d847
-# ╠═1c3fa5eb-bf0d-4db1-9445-030c7168a5da
 # ╠═4a0b0efc-759d-486a-97b5-9868e99f602f
 # ╠═a0290968-0909-45f8-ade9-b58e87c15626
 # ╟─bca7b24e-d8df-4efa-ab40-8651488596e3
