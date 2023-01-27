@@ -12,7 +12,7 @@ begin
 	import Graphs.Experimental: vf2, IsomorphismProblem
 	#notebook stuff
 	using BenchmarkTools, PlutoTest
-	using CairoMakie, GraphMakie
+	using CairoMakie, GraphMakie, LinearAlgebra
 	using PlutoUI
 	TableOfContents(title="ConSubG")
 end
@@ -67,16 +67,22 @@ md"""
 # ╔═╡ 9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 kCombinations(k, S) = collect(combinations(S, k))
 
-# ╔═╡ 97b3722b-bdba-462b-9889-dfc8b9e9953f
+# ╔═╡ 03ec73d8-6a90-475d-9f0c-4721b5e5d4c1
 @memoize function kCompositions(elements::Int, sum_value::Int)::Vector{Vector{Int}}
-	perms = collect(
-		multiset_permutations(
-			repeat([1:(sum_value - elements + 1)...], elements), 
-			elements
+	return unique(
+		reduce(
+			vcat, 
+			collect.([
+				permutations(c, elements) 
+				for c in filter(
+					c -> sum(c) == sum_value,
+					collect(
+						with_replacement_combinations(1:elements, elements)
+					)
+				)
+			])
 		)
 	)
-	sums = sum.(perms)
-	return perms[sums .== sum_value]
 end
 
 # ╔═╡ 26814357-e102-4908-83b1-edce97094603
@@ -143,11 +149,16 @@ end
 
 # ╔═╡ fc0851cd-c0a1-4fbb-9790-0074d35601f0
 graphplot(
-	T_manual; 
+	SimpleDiGraph(UpperTriangular(adjacency_matrix(T_manual))); 
 	nlabels=[
-		"$(get_prop(T_manual, v, :vertex))$(get_prop(T_manual, v, :new) ? "*" : "")"
+		"$(
+			get_prop(T_manual, v, :vertex)
+		)$(
+			get_prop(T_manual, v, :new) ? "*" : ""
+		)"
 		for v in vertices(T_manual)
-	]
+	],
+	layout=GraphMakie.Buchheim()
 )
 
 # ╔═╡ afb9b973-bbf3-4db6-9a1e-77c7d5d36771
@@ -171,11 +182,12 @@ T_opt = @btime combination_tree_opt(1, 4, G)
 
 # ╔═╡ 9c3abb0b-5d5f-4108-839a-f951bd92d847
 graphplot(
-	T_from_algorithm; 
+	SimpleDiGraph(UpperTriangular(adjacency_matrix(T_from_algorithm))); 
 	nlabels=[
 		"$(get_prop(T_from_algorithm, v, :vertex))$(get_prop(T_from_algorithm, v, :new) ? "*" : "")"
 		for v in vertices(T_from_algorithm)
-	]
+	],
+	layout=GraphMakie.Buchheim()
 )
 
 # ╔═╡ 1c3fa5eb-bf0d-4db1-9445-030c7168a5da
@@ -221,6 +233,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
@@ -230,10 +243,10 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 BenchmarkTools = "~1.3.2"
 CairoMakie = "~0.10.1"
 Combinatorics = "~1.0.2"
-GraphMakie = "~0.5.1"
+GraphMakie = "~0.5.2"
 Graphs = "~1.7.4"
 Memoization = "~0.2.0"
-MetaGraphs = "~0.7.1"
+MetaGraphs = "~0.7.2"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.49"
 """
@@ -244,7 +257,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "f1c8902c83b2cddf0b5fb610819edda9302b1b3b"
+project_hash = "f7cf6facea70e55de046a49bbe00beefa2cac443"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -259,15 +272,15 @@ uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
 
 [[deps.AbstractTrees]]
-git-tree-sha1 = "52b3b436f8f73133d7bc3a6c71ee7ed6ab2ab754"
+git-tree-sha1 = "faa260e4cb5aba097a73fab382dd4b5819d8ec8c"
 uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.4.3"
+version = "0.4.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "195c5505521008abea5aee4f96930717958eac6f"
+git-tree-sha1 = "0310e08cb19f5da31d08341c6120c047598f5b9c"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.4.0"
+version = "3.5.0"
 
 [[deps.Animations]]
 deps = ["Colors"]
@@ -355,15 +368,15 @@ version = "0.5.1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "e7ff6cadf743c098e08fca25c91103ee4303c9bb"
+git-tree-sha1 = "c6d890a52d2c4d55d326439580c3b8d0875a77d9"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.15.6"
+version = "1.15.7"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
-git-tree-sha1 = "38f7a08f19d8810338d4f5085211c7dfa5d5bdd8"
+git-tree-sha1 = "844b061c104c408b24537482469400af6075aae4"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
-version = "0.1.4"
+version = "0.1.5"
 
 [[deps.ColorBrewer]]
 deps = ["Colors", "JSON", "Test"]
@@ -527,9 +540,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "9a0472ec2f5409db243160a8b030f94c380167a3"
+git-tree-sha1 = "d3ba08ab64bdfd27234d3f61956c966266757fe6"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.13.6"
+version = "0.13.7"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -579,15 +592,15 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[deps.GPUArraysCore]]
 deps = ["Adapt"]
-git-tree-sha1 = "6872f5ec8fd1a38880f027a26739d42dcda6691f"
+git-tree-sha1 = "57f7cde02d7a53c9d1d28443b9f11ac5fbe7ebc9"
 uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
-version = "0.1.2"
+version = "0.1.3"
 
 [[deps.GeoInterface]]
 deps = ["Extents"]
-git-tree-sha1 = "fb28b5dc239d0174d7297310ef7b84a11804dfab"
+git-tree-sha1 = "e07a1b98ed72e3cdd02c6ceaab94b8a606faca40"
 uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
-version = "1.0.1"
+version = "1.2.1"
 
 [[deps.GeometryBasics]]
 deps = ["EarCut_jll", "GeoInterface", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -609,9 +622,9 @@ version = "2.74.0+2"
 
 [[deps.GraphMakie]]
 deps = ["GeometryBasics", "Graphs", "LinearAlgebra", "Makie", "NetworkLayout", "StaticArrays"]
-git-tree-sha1 = "3e2a15c851ea53cc28501c600f3df30647e3885b"
+git-tree-sha1 = "e43489eaa1512c8b1165a10b522bf20ebcb5f04c"
 uuid = "1ecd5474-83a3-4783-bb4f-06765db800d2"
-version = "0.5.1"
+version = "0.5.2"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -769,9 +782,9 @@ version = "1.0.0"
 
 [[deps.JLD2]]
 deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "ec8a9c9f0ecb1c687e34c1fda2699de4d054672a"
+git-tree-sha1 = "c3244ef42b7d4508c638339df1bdbf4353e144db"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.29"
+version = "0.4.30"
 
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
@@ -893,9 +906,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "946607f84feb96220f480e0422d3484c49c00239"
+git-tree-sha1 = "45b288af6956e67e621c5cbb2d75a261ab58300b"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.19"
+version = "0.3.20"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -962,9 +975,9 @@ version = "0.2.0"
 
 [[deps.MetaGraphs]]
 deps = ["Graphs", "JLD2", "Random"]
-git-tree-sha1 = "2af69ff3c024d13bde52b34a2a7d6887d4e7b438"
+git-tree-sha1 = "1130dbe1d5276cb656f6e1094ce97466ed700e5a"
 uuid = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
-version = "0.7.1"
+version = "0.7.2"
 
 [[deps.MiniQhull]]
 deps = ["QhullMiniWrapper_jll"]
@@ -1135,9 +1148,9 @@ version = "0.3.2"
 
 [[deps.PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "SnoopPrecompile", "Statistics"]
-git-tree-sha1 = "5b7690dd212e026bbab1860016a6601cb077ab66"
+git-tree-sha1 = "c95373e73290cf50a8a22c3375e4625ded5c5280"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.3.2"
+version = "1.3.4"
 
 [[deps.PlutoTest]]
 deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
@@ -1196,9 +1209,9 @@ version = "8.0.1001+0"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "97aa253e65b784fd13e83774cadc95b38011d734"
+git-tree-sha1 = "de191bc385072cc6c7ed3ffdc1caeed3f22c74d4"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.6.0"
+version = "2.7.0"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1254,9 +1267,9 @@ version = "0.7.0"
 
 [[deps.SIMD]]
 deps = ["SnoopPrecompile"]
-git-tree-sha1 = "34edfe91375e5883875987e740c554b92c48fc41"
+git-tree-sha1 = "8b20084a97b004588125caebf418d8cab9e393d1"
 uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
-version = "3.4.3"
+version = "3.4.4"
 
 [[deps.ScanByte]]
 deps = ["Libdl", "SIMD"]
@@ -1612,7 +1625,7 @@ version = "3.5.0+0"
 # ╠═2043d425-6872-43a7-8224-e2f064684a6d
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
-# ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
+# ╠═03ec73d8-6a90-475d-9f0c-4721b5e5d4c1
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
@@ -1626,7 +1639,7 @@ version = "3.5.0+0"
 # ╠═ca0dfce1-82d9-42d3-b273-d9f9261ba451
 # ╠═54aba875-14c6-4bd5-804d-0414c8b3ef91
 # ╠═a06b7d82-c52b-4045-8fe0-b045a4b28180
-# ╠═9c3abb0b-5d5f-4108-839a-f951bd92d847
+# ╟─9c3abb0b-5d5f-4108-839a-f951bd92d847
 # ╠═1c3fa5eb-bf0d-4db1-9445-030c7168a5da
 # ╠═4a0b0efc-759d-486a-97b5-9868e99f602f
 # ╠═a0290968-0909-45f8-ade9-b58e87c15626
