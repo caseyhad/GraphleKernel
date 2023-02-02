@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.20
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
@@ -7,7 +7,7 @@ using InteractiveUtils
 # ╔═╡ 0e7e1aa4-92d0-11ed-38ef-b5ef8a13d1f9
 begin
 	# algo stuff
-	using Combinatorics, Graphs, Memoization, MetaGraphs
+	using Combinatorics, Graphs, MetaGraphs
 	# test stuff
 	import Graphs.Experimental: vf2, IsomorphismProblem
 	#notebook stuff
@@ -68,7 +68,7 @@ md"""
 kCombinations(k, S) = collect(combinations(S, k))
 
 # ╔═╡ 97b3722b-bdba-462b-9889-dfc8b9e9953f
-@memoize function kCompositions(elements::Int, sum_value::Int)::Vector{Vector{Int}}
+function kCompositions(elements::Int, sum_value::Int)::Vector{Vector{Int}}
 	perms = collect(
 		multiset_permutations(
 			repeat([1:(sum_value - elements + 1)...], elements), 
@@ -78,6 +78,25 @@ kCombinations(k, S) = collect(combinations(S, k))
 	sums = sum.(perms)
 	return perms[sums .== sum_value]
 end
+
+# ╔═╡ 533a49e6-5074-40b6-98dd-e0149d061ee2
+md"""
+## UnionProduct ⊗ₜ
+"""
+
+# ╔═╡ b011072b-26ee-46cc-93dc-21da41735cbf
+sₓ = [[3,1],[1,3]]
+
+# ╔═╡ 90c235fe-b4e3-47d2-8a17-1a9b2ab555a0
+s₂ = [6,7]
+
+# ╔═╡ f779c287-5e48-41ce-81f6-9c71acd42de5
+[6,7] ∪ [8]
+
+# ╔═╡ a409df2f-11f9-4e7a-bed4-f23084c51d3c
+md"""
+## CombinationsFromTree
+"""
 
 # ╔═╡ 26814357-e102-4908-83b1-edce97094603
 md"""
@@ -163,8 +182,117 @@ md"""
 # ╔═╡ ca0dfce1-82d9-42d3-b273-d9f9261ba451
 T_from_algorithm = @btime combination_tree(1, 4, G)
 
+# ╔═╡ 87474e0b-68ae-460b-a55a-c775c53f5329
+get_prop(T_from_algorithm, 7, :vertex)
+
+# ╔═╡ da77db77-d190-4d35-8048-58455b6ab502
+get_prop(T_from_algorithm, 2, :new)==true
+
+
+# ╔═╡ dc5d82a6-0224-4cde-8ae3-22a03b95aeea
+begin
+	Childrenᵢ=[]
+	for nᵢ in eachindex(neighbors(T_from_algorithm, 2))
+		if neighbors(T_from_algorithm, 2)[nᵢ].>2
+			push!(Childrenᵢ,neighbors(T_from_algorithm, 2)[nᵢ])
+		end
+	end
+	Childrenᵢ
+end
+
+# ╔═╡ 5eb8a428-cfb8-4352-986b-e3749ba8ff61
+get_prop(T_from_algorithm, 7, :new)==true
+
+
+# ╔═╡ f251ce28-01c2-4e5a-b98e-528c27593f4c
+any([get_prop(T_from_algorithm,v,:new) for v in s₂])
+
+# ╔═╡ 204b1899-9dc0-401c-a9e8-fbf50d686385
+function ⊗ₜ(S₁::Vector{Vector{Int}},S₂::Vector{Vector{Int}},tree::MetaGraph)::Vector{Vector{Int}}
+	UnionProduct = []
+	if S₁ == [[]] || S₂ == [[]]
+		return S₁
+	else
+		for s₁ in eachindex(S₁)
+			for s₂ in eachindex(S₂)
+				new_ct = false
+				for c in eachindex(S₂[s₂])
+					if get_prop(tree, S₂[s₂][c], :new)
+						new_ct = true
+						break
+					end
+				end
+				for i in eachindex(S₁[s₁])
+					vᵢ=get_prop(tree, S₁[s₁][i], :vertex)
+					Children_nodes=neighbors(T_from_algorithm, S₁[s₁][i])[(neighbors(T_from_algorithm, S₁[s₁][i]).>S₁[s₁][i])]
+					for cᵢ in eachindex(Children_nodes)
+						Childrenᵢ[cᵢ] = get_prop(T_from_algorithm, Children_nodes[cᵢ], :vertex)
+					end
+					for j in eachindex(S₂[s₂])
+						vⱼ=get_prop(tree, S₂[s₂][j], :vertex)
+						if vᵢ == vⱼ || (!new_ct && in(Childrenᵢ.==vⱼ)(1)==true)
+							return [[]]
+						end
+					end
+				end
+				push!(UnionProduct,S₁[s₁] ∪ S₂[s₂])
+			end
+		end
+	end
+	return UnionProduct
+end
+
+# ╔═╡ a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
+function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
+	t=stRoot
+	lnodesets = []
+	k==1 && return [[t]]
+	Childrenₜ = [v for v in neighbors(tree,t) if v>t]
+	for i = 1:minimum([length(Childrenₜ),k-1])
+		for NodeComb in kCombinations(i,Childrenₜ)
+			for string in kCompositions(i,k-1)
+				S = Dict()
+				fail = false
+				for pos in 1:i
+					stRoot = NodeComb[pos]
+					size = string[pos]
+					S[pos] = CombinationsFromTree(tree,size,stRoot)
+					if S[pos] == [[]] 
+						fail  = true
+						break
+					end
+				end
+				fail && continue
+				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), values(S))
+					@show lnodesets
+					lnodesets = lnodesets ∪ [comProduct ∪ [t]]
+				end
+			end
+		end
+	end
+	return lnodesets
+end
+
+# ╔═╡ c0f58b54-542e-4d55-ae3f-550a903fd4d5
+⊗ₜ([[2]],[[6,7]],T_from_algorithm)
+
+# ╔═╡ d580f065-abcd-4973-9ee0-74503631e893
+⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm)
+
+# ╔═╡ 3a41c332-b1d3-4bc6-88ab-694fcf30f40c
+⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)
+
+# ╔═╡ 9783151f-d874-4363-8599-083f6840963b
+⊗ₜ([[6,7]],[[8]],T_from_algorithm)
+
+# ╔═╡ 260f2f9b-9882-4421-ba18-874ef012ccbf
+lnodesets = CombinationsFromTree(T_from_algorithm,4)
+
+# ╔═╡ c0c2d21b-bb4a-4f9a-9c0d-3d6e16474415
+[[get_prop(T_from_algorithm,v,:vertex) for v in Set] for Set in lnodesets]
+
 # ╔═╡ 54aba875-14c6-4bd5-804d-0414c8b3ef91
-T_opt = @btime combination_tree_opt(1, 4, G)
+T_opt = @btime combination_tree(1, 4, G)
 
 # ╔═╡ a06b7d82-c52b-4045-8fe0-b045a4b28180
 @test T_from_algorithm == T_opt
@@ -213,6 +341,9 @@ md"""
 # ╔═╡ 674b36d8-b7fb-4c80-949f-666e1d4f51af
 @test kCompositions(3, 4) == [[1, 1, 2], [1, 2, 1], [2, 1, 1]]
 
+# ╔═╡ 13a05703-c2a1-4a3e-a927-255a0126e8eb
+
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -221,7 +352,6 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
-Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -232,7 +362,6 @@ CairoMakie = "~0.10.1"
 Combinatorics = "~1.0.2"
 GraphMakie = "~0.5.1"
 Graphs = "~1.7.4"
-Memoization = "~0.2.0"
 MetaGraphs = "~0.7.1"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.49"
@@ -242,9 +371,9 @@ PlutoUI = "~0.7.49"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.5"
+julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "f1c8902c83b2cddf0b5fb610819edda9302b1b3b"
+project_hash = "4a8b94875553ef19344deb706fb4d15cfe49995a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -409,7 +538,7 @@ version = "4.5.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.1+0"
+version = "0.5.2+0"
 
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
@@ -953,12 +1082,6 @@ version = "0.5.4"
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 version = "2.28.0+0"
-
-[[deps.Memoization]]
-deps = ["MacroTools"]
-git-tree-sha1 = "2f6913923a0cb8046134f5cbf8b4d7ba3c856a1d"
-uuid = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
-version = "0.2.0"
 
 [[deps.MetaGraphs]]
 deps = ["Graphs", "JLD2", "Random"]
@@ -1613,6 +1736,24 @@ version = "3.5.0+0"
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
+# ╟─533a49e6-5074-40b6-98dd-e0149d061ee2
+# ╠═87474e0b-68ae-460b-a55a-c775c53f5329
+# ╠═b011072b-26ee-46cc-93dc-21da41735cbf
+# ╠═90c235fe-b4e3-47d2-8a17-1a9b2ab555a0
+# ╠═da77db77-d190-4d35-8048-58455b6ab502
+# ╠═f779c287-5e48-41ce-81f6-9c71acd42de5
+# ╠═dc5d82a6-0224-4cde-8ae3-22a03b95aeea
+# ╠═5eb8a428-cfb8-4352-986b-e3749ba8ff61
+# ╠═f251ce28-01c2-4e5a-b98e-528c27593f4c
+# ╠═204b1899-9dc0-401c-a9e8-fbf50d686385
+# ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
+# ╠═d580f065-abcd-4973-9ee0-74503631e893
+# ╠═3a41c332-b1d3-4bc6-88ab-694fcf30f40c
+# ╠═9783151f-d874-4363-8599-083f6840963b
+# ╟─a409df2f-11f9-4e7a-bed4-f23084c51d3c
+# ╠═a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
+# ╠═260f2f9b-9882-4421-ba18-874ef012ccbf
+# ╠═c0c2d21b-bb4a-4f9a-9c0d-3d6e16474415
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
@@ -1633,5 +1774,6 @@ version = "3.5.0+0"
 # ╟─bca7b24e-d8df-4efa-ab40-8651488596e3
 # ╠═bacf3047-c762-434f-8937-e9531f7b8f42
 # ╠═674b36d8-b7fb-4c80-949f-666e1d4f51af
+# ╠═13a05703-c2a1-4a3e-a927-255a0126e8eb
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
