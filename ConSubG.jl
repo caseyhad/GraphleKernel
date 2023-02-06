@@ -208,7 +208,7 @@ get_prop(T_from_algorithm, 7, :new)==true
 any([get_prop(T_from_algorithm,v,:new) for v in s₂])
 
 # ╔═╡ 204b1899-9dc0-401c-a9e8-fbf50d686385
-function ⊗ₜ(S₁::Vector{Vector{Int}},S₂::Vector{Vector{Int}},tree::MetaGraph)::Vector{Vector{Int}}
+function ⊗ₜ(S₁,S₂,tree::MetaGraph)::Vector{Vector{Int}}
 	UnionProduct = []
 	if S₁ == [[]] || S₂ == [[]]
 		return S₁
@@ -256,22 +256,31 @@ function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vect
 				for pos in 1:i
 					stRoot = NodeComb[pos]
 					size = string[pos]
+					[size, stRoot, CombinationsFromTree(tree,size,stRoot)]
 					S[pos] = CombinationsFromTree(tree,size,stRoot)
-					if S[pos] == [[]] 
+					if S[pos] == []
 						fail  = true
 						break
 					end
 				end
 				fail && continue
-				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), values(S))
-					@show lnodesets
+				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), [S[i] for i in 1:length(S)])
 					lnodesets = lnodesets ∪ [comProduct ∪ [t]]
 				end
 			end
 		end
 	end
-	return lnodesets
+	return lnodesets[length.(lnodesets) .== k]
 end
+
+# ╔═╡ ae706fcf-85e1-4742-bcac-462ec1985593
+⊗ₜ([[3]],[[5]],T_from_algorithm)
+
+# ╔═╡ 0cb3b41b-6888-48c8-9df9-42e9cf353350
+⊗ₜ([[2,6,7]],[[]],T_from_algorithm)
+
+# ╔═╡ fa48e421-e69e-4250-a6dd-018d3e22d859
+⊗ₜ([[]],[[2,6,7]],T_from_algorithm)
 
 # ╔═╡ c0f58b54-542e-4d55-ae3f-550a903fd4d5
 ⊗ₜ([[2]],[[6,7]],T_from_algorithm)
@@ -1746,6 +1755,9 @@ version = "3.5.0+0"
 # ╠═5eb8a428-cfb8-4352-986b-e3749ba8ff61
 # ╠═f251ce28-01c2-4e5a-b98e-528c27593f4c
 # ╠═204b1899-9dc0-401c-a9e8-fbf50d686385
+# ╠═ae706fcf-85e1-4742-bcac-462ec1985593
+# ╠═0cb3b41b-6888-48c8-9df9-42e9cf353350
+# ╠═fa48e421-e69e-4250-a6dd-018d3e22d859
 # ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
 # ╠═d580f065-abcd-4973-9ee0-74503631e893
 # ╠═3a41c332-b1d3-4bc6-88ab-694fcf30f40c
