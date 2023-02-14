@@ -7,15 +7,13 @@ using InteractiveUtils
 # ╔═╡ 0e7e1aa4-92d0-11ed-38ef-b5ef8a13d1f9
 begin
 	# algo stuff
-	using Combinatorics, Graphs, MetaGraphs, Memoization
+	using Combinatorics, Graphs, MetaGraphs
 	# test stuff
 	import Graphs.Experimental: vf2, IsomorphismProblem
 	#notebook stuff
 	using BenchmarkTools, PlutoTest
 	using CairoMakie, GraphMakie
 	using PlutoUI
-	using ProfileCanvas
-	using MolecularGraph, MolecularGraphKernels
 	TableOfContents(title="ConSubG")
 end
 
@@ -70,26 +68,21 @@ md"""
 kCombinations(k, S) = collect(combinations(S, k))
 
 # ╔═╡ 97b3722b-bdba-462b-9889-dfc8b9e9953f
-@memoize function kCompositions(elements::Int, sum_value::Int)::Vector{Vector{Int}}
-	if elements == 0 || sum_value == 0 || elements>sum_value
-		return []
-	end
-	if elements == 1
-		return [[sum_value]]
-	else 
-		return unique(
-			reduce(vcat, collect.([permutations(c, elements) for c in filter(c -> sum(c) == sum_value,collect(with_replacement_combinations(1:elements, elements)
-						)
-					)
-				])
-			)
+function kCompositions(elements::Int, sum_value::Int)::Vector{Vector{Int}}
+	perms = collect(
+		multiset_permutations(
+			repeat([1:(sum_value - elements + 1)...], elements), 
+			elements
 		)
-	end
+	)
+	sums = sum.(perms)
+	return perms[sums .== sum_value]
 end
 
 # ╔═╡ 533a49e6-5074-40b6-98dd-e0149d061ee2
 md"""
-## `⊗ₜ` (UnionProduct)
+<<<<<<< HEAD
+## UnionProduct: `⊗ₜ`
 """
 
 # ╔═╡ 204b1899-9dc0-401c-a9e8-fbf50d686385
@@ -100,10 +93,10 @@ function ⊗ₜ(S₁,S₂,tree::MetaGraph)::Vector{Vector{Int}}
 	else
 		for s₁ in S₁
 			for s₂ in S₂
-				new_ct = any([get_prop(tree,v,:new) for v in s₂])
+				new_ct = any([get_prop(tree, c, :new) for c in s₂])
 				for i in s₁
 					vᵢ=get_prop(tree, i, :vertex)
-					Childrenᵢ = [get_prop(tree, n, :vertex) for n in neighbors(tree, i)[(neighbors(tree, i).>i)]]
+					Childrenᵢ = [get_prop(tree, cᵢ, :vertex) for cᵢ in neighbors(tree, i)[(neighbors(tree, i).>i)]]
 					for j in s₂
 						vⱼ=get_prop(tree, j, :vertex)
 						if vᵢ == vⱼ || (!new_ct && in(Childrenᵢ.==vⱼ)(1)==true)
@@ -124,7 +117,7 @@ md"""
 """
 
 # ╔═╡ a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
-@memoize function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
+function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
 	t=stRoot
 	lnodesets = []
 	k==1 && return [[t]]
@@ -137,6 +130,7 @@ md"""
 				for pos in 1:i
 					stRoot = NodeComb[pos]
 					size = string[pos]
+					[size, stRoot, CombinationsFromTree(tree,size,stRoot)]
 					S[pos] = CombinationsFromTree(tree,size,stRoot)
 					if S[pos] == []
 						fail  = true
@@ -153,37 +147,39 @@ md"""
 	return lnodesets[length.(lnodesets) .== k]
 end
 
-# ╔═╡ 1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
+# ╔═╡ 7df41749-dc0b-465c-8f44-116c2113825e
 md"""
 ## `CombinationsWithV`
 """
 
-# ╔═╡ b03079c8-4b16-46b2-a4d7-3b3b0bfe63dc
+# ╔═╡ 6117b57b-6a1f-4e37-a3e4-aa06860e50a7
 function CombinationsWithV(v,k,graph)
 	tree = combination_tree(v,k,graph)
 	ncombs = CombinationsFromTree(tree,k)
 	return [[get_prop(tree,v,:vertex) for v in Set] for Set in ncombs]
 end
 
-# ╔═╡ 8aa97840-db7f-4d18-a66f-461ad96b6d80
+# ╔═╡ 0a374b35-f05b-485e-9235-555b24607d2a
 md"""
 ## `ConSubG`
+=======
+## UnionProduct ⊗ₜ
 """
 
-# ╔═╡ a4559079-82f6-4052-a426-9f9065ca9718
-function ConSubG(k,graph)
-	G = deepcopy(graph)
-	for v in vertices(G)
-		set_prop!(G, v, :visited, false)
-	end
-	list = Dict()
-	queue = reverse(vertices(G))
-	for v in queue
-		list = list ∪ CombinationsWithV(v,k,G)
-		rem_vertex!(G,v)
-	end
-	return list
-end
+# ╔═╡ b011072b-26ee-46cc-93dc-21da41735cbf
+sₓ = [[3,1],[1,3]]
+
+# ╔═╡ 90c235fe-b4e3-47d2-8a17-1a9b2ab555a0
+s₂ = [6,7]
+
+# ╔═╡ f779c287-5e48-41ce-81f6-9c71acd42de5
+[6,7] ∪ [8]
+
+# ╔═╡ a409df2f-11f9-4e7a-bed4-f23084c51d3c
+md"""
+## CombinationsFromTree
+>>>>>>> df0355b7003b85301bf20995c0f99e33991ed407
+"""
 
 # ╔═╡ 26814357-e102-4908-83b1-edce97094603
 md"""
@@ -210,6 +206,16 @@ G = begin
 	graph
 end
 
+# ╔═╡ 3ce072fc-5b1f-4036-a98c-bad424713f17
+function ConSubG(k,graph)
+	list = dict()
+	queue = [v for v in vertices(G)]
+	for v in queue
+		list = list ∪ CombinationsWithV(v,k,G)
+		rem_vertex!(G,v)
+	end
+end
+
 # ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
 graphplot(
 	G; 
@@ -217,53 +223,6 @@ graphplot(
 		"$v$(get_prop(G, v, :visited) ? "*" : "")"
 		for v in vertices(G)
 	])
-
-# ╔═╡ 4b2eac9e-1e3a-4436-b7be-44cf45da1df8
-G₁ₛₘᵢₗₑ = "c1(N(O)O)c(C)c(N(O)=O)cc(N(O)=O)c1"
-
-# ╔═╡ 6ec1a0c2-9705-414e-b3c3-d01ce03f5737
-G₂ₛₘᵢₗₑ = "c1ccccc1CC(C)NC"
-
-# ╔═╡ da08d62f-440a-4545-be16-642aa9df3f91
-	G₁,G₂ = MetaGraph.(smilestomol.([G₁ₛₘᵢₗₑ,G₂ₛₘᵢₗₑ]))
-
-# ╔═╡ 7589593c-25a5-4ede-bb26-5a8566c14b93
-viz_graph(G₁)
-
-# ╔═╡ a518b188-467a-457f-855b-e32ae425c8c9
-viz_graph(G₂)
-
-# ╔═╡ 98d1f7fa-6193-4751-b664-1d2bae161f4b
-DPG1 = ProductGraph{Direct}(G₁,G₁)
-
-# ╔═╡ f465756d-2379-4da3-999e-f0fbff6ac37b
-DPG2 = ProductGraph{Direct}(G₂,G₂)
-
-# ╔═╡ 93cc842f-7dd0-4b4e-9506-d9bd41d4a0ee
-k₂ = length(ConSubG(4,DPG2))
-
-# ╔═╡ 6e4fcccd-9775-4170-bbc0-0bea4fce0a11
-k₁ = length(ConSubG(4,DPG1))
-
-# ╔═╡ a483f8a3-c581-4492-ae58-3f34a8da290f
-DPG = ProductGraph{Direct}(G₁,G₂)
-
-# ╔═╡ 464d9cf5-d881-4a70-a1ab-c8e4da4195fe
-k = length(ConSubG(4,DPG))
-
-# ╔═╡ 9aba6044-2ab8-40c5-b3fb-b2522c1c2684
-k/(k₂*k₁)^.5
-
-# ╔═╡ 937bff3b-7dad-4a8a-85e6-39e3b566e562
-[[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
-
-# ╔═╡ f2b962c1-68d4-45f8-a3c0-d0083751132c
-function connected_graphlet(G₁, G₂; n=2:4)
-	return sum([k*length(ConSubG(k,ProductGraph{Direct}(G₁,G₂))) for k in n])
-end
-
-# ╔═╡ 0432ac11-c93b-48a9-963e-3ef1acc056b8
-@btime connected_graphlet(G₁,G₂,n=2:4)
 
 # ╔═╡ 452cb8bc-9590-4274-9a50-b2f9df80d1ba
 md"""
@@ -316,6 +275,124 @@ md"""
 # ╔═╡ ca0dfce1-82d9-42d3-b273-d9f9261ba451
 T_from_algorithm = @btime combination_tree(1, 4, G)
 
+# ╔═╡ 87474e0b-68ae-460b-a55a-c775c53f5329
+get_prop(T_from_algorithm, 7, :vertex)
+
+# ╔═╡ da77db77-d190-4d35-8048-58455b6ab502
+get_prop(T_from_algorithm, 2, :new)==true
+
+
+# ╔═╡ dc5d82a6-0224-4cde-8ae3-22a03b95aeea
+begin
+	Childrenᵢ=[]
+	for nᵢ in eachindex(neighbors(T_from_algorithm, 2))
+		if neighbors(T_from_algorithm, 2)[nᵢ].>2
+			push!(Childrenᵢ,neighbors(T_from_algorithm, 2)[nᵢ])
+		end
+	end
+	Childrenᵢ
+end
+
+# ╔═╡ 5eb8a428-cfb8-4352-986b-e3749ba8ff61
+get_prop(T_from_algorithm, 7, :new)==true
+
+
+# ╔═╡ f251ce28-01c2-4e5a-b98e-528c27593f4c
+any([get_prop(T_from_algorithm,v,:new) for v in s₂])
+
+# ╔═╡ 204b1899-9dc0-401c-a9e8-fbf50d686385
+function ⊗ₜ(S₁,S₂,tree::MetaGraph)::Vector{Vector{Int}}
+	UnionProduct = []
+	if S₁ == [[]] || S₂ == [[]]
+		return S₁
+	else
+		for s₁ in eachindex(S₁)
+			for s₂ in eachindex(S₂)
+				new_ct = false
+				for c in eachindex(S₂[s₂])
+					if get_prop(tree, S₂[s₂][c], :new)
+						new_ct = true
+						break
+					end
+				end
+				for i in eachindex(S₁[s₁])
+					vᵢ=get_prop(tree, S₁[s₁][i], :vertex)
+					Children_nodes=neighbors(T_from_algorithm, S₁[s₁][i])[(neighbors(T_from_algorithm, S₁[s₁][i]).>S₁[s₁][i])]
+					for cᵢ in eachindex(Children_nodes)
+						Childrenᵢ[cᵢ] = get_prop(T_from_algorithm, Children_nodes[cᵢ], :vertex)
+					end
+					for j in eachindex(S₂[s₂])
+						vⱼ=get_prop(tree, S₂[s₂][j], :vertex)
+						if vᵢ == vⱼ || (!new_ct && in(Childrenᵢ.==vⱼ)(1)==true)
+							return [[]]
+						end
+					end
+				end
+				push!(UnionProduct,S₁[s₁] ∪ S₂[s₂])
+			end
+		end
+	end
+	return UnionProduct
+end
+
+# ╔═╡ a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
+function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
+	t=stRoot
+	lnodesets = []
+	k==1 && return [[t]]
+	Childrenₜ = [v for v in neighbors(tree,t) if v>t]
+	for i = 1:minimum([length(Childrenₜ),k-1])
+		for NodeComb in kCombinations(i,Childrenₜ)
+			for string in kCompositions(i,k-1)
+				S = Dict()
+				fail = false
+				for pos in 1:i
+					stRoot = NodeComb[pos]
+					size = string[pos]
+					[size, stRoot, CombinationsFromTree(tree,size,stRoot)]
+					S[pos] = CombinationsFromTree(tree,size,stRoot)
+					if S[pos] == []
+						fail  = true
+						break
+					end
+				end
+				fail && continue
+				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), [S[i] for i in 1:length(S)])
+					lnodesets = lnodesets ∪ [comProduct ∪ [t]]
+				end
+			end
+		end
+	end
+	return lnodesets[length.(lnodesets) .== k]
+end
+
+# ╔═╡ ae706fcf-85e1-4742-bcac-462ec1985593
+⊗ₜ([[3]],[[5]],T_from_algorithm)
+
+# ╔═╡ 0cb3b41b-6888-48c8-9df9-42e9cf353350
+⊗ₜ([[2,6,7]],[[]],T_from_algorithm)
+
+# ╔═╡ fa48e421-e69e-4250-a6dd-018d3e22d859
+⊗ₜ([[]],[[2,6,7]],T_from_algorithm)
+
+# ╔═╡ c0f58b54-542e-4d55-ae3f-550a903fd4d5
+⊗ₜ([[2]],[[6,7]],T_from_algorithm)
+
+# ╔═╡ d580f065-abcd-4973-9ee0-74503631e893
+⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm)
+
+# ╔═╡ 3a41c332-b1d3-4bc6-88ab-694fcf30f40c
+⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)
+
+# ╔═╡ 9783151f-d874-4363-8599-083f6840963b
+⊗ₜ([[6,7]],[[8]],T_from_algorithm)
+
+# ╔═╡ 260f2f9b-9882-4421-ba18-874ef012ccbf
+lnodesets = CombinationsFromTree(T_from_algorithm,4)
+
+# ╔═╡ c0c2d21b-bb4a-4f9a-9c0d-3d6e16474415
+[[get_prop(T_from_algorithm,v,:vertex) for v in Set] for Set in lnodesets]
+
 # ╔═╡ 54aba875-14c6-4bd5-804d-0414c8b3ef91
 T_opt = @btime combination_tree(1, 4, G)
 
@@ -366,42 +443,46 @@ md"""
 # ╔═╡ 674b36d8-b7fb-4c80-949f-666e1d4f51af
 @test kCompositions(3, 4) == [[1, 1, 2], [1, 2, 1], [2, 1, 1]]
 
-# ╔═╡ ee99192f-7e90-412e-b57b-901ee6bbeec8
+# ╔═╡ 13a05703-c2a1-4a3e-a927-255a0126e8eb
+<<<<<<< HEAD
 md"""
-## ⊗ₜ
+## UnionProduct
 """
 
-# ╔═╡ ae706fcf-85e1-4742-bcac-462ec1985593
+# ╔═╡ a21a5f4c-613f-4c9e-8b1b-9113b700c1b4
 @test ⊗ₜ([[3]],[[5]],T_from_algorithm) == [[]]
 
-# ╔═╡ 0cb3b41b-6888-48c8-9df9-42e9cf353350
-@test any([i in ⊗ₜ([[2,6,7]],[[]],T_from_algorithm) for i in collect(permutations([2,6,7]))])
+# ╔═╡ e00e06f8-cae3-4af9-9e7b-99c30d5b97c0
+@test ⊗ₜ([[5]],[[3]],T_from_algorithm) == [[5,3]]
 
-# ╔═╡ fa48e421-e69e-4250-a6dd-018d3e22d859
+# ╔═╡ 200b3138-4bc7-4477-bd40-a16b843d62fd
+@test ⊗ₜ([[2,6,7]],[[]],T_from_algorithm) == [[2,6,7]]
+
+# ╔═╡ cb11b9fb-0b67-41f1-b581-23dc4371b79f
 @test ⊗ₜ([[]],[[2,6,7]],T_from_algorithm) == [[]]
 
-# ╔═╡ c0f58b54-542e-4d55-ae3f-550a903fd4d5
+# ╔═╡ 018e1495-fe16-4047-928f-cb6d242ec8fe
 @test ⊗ₜ([[2]],[[6,7]],T_from_algorithm) == [[]]
 
-# ╔═╡ d580f065-abcd-4973-9ee0-74503631e893
+# ╔═╡ c3c9b7b6-c2d2-4673-9bca-59e7ce5fdbc8
 @test ⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm) == [[]]
 
-# ╔═╡ 4cbc1f5e-0721-49df-92bf-05ac715288aa
-@test all(i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)) for i in sort.([[2,3,8],[2,5,8]])) && all(i in sort.([[2,3,8],[2,5,8]]) for i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)))
+# ╔═╡ 13f556cf-ba68-401d-88b2-8b0630b89a01
+@test ⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm) == [[2,3,8], [2,5,8]]
 
-# ╔═╡ 340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
-@test all(i in sort.(ConSubG(4,G)) for i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]])) && all(i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]]) for i in sort.(ConSubG(4,G)))
+# ╔═╡ 1c93c859-9321-4d87-a587-5741112ebf02
+@test ⊗ₜ([[6,7]],[[8]],T_from_algorithm) == [[6,7,8]]
 
-# ╔═╡ 6c56c473-7fb6-4252-a979-1fb293dfe769
-@test all(i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)) for i in sort.([[6,7,8]])) && all(i in sort.([[6,7,8]]) for i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)))
-
-# ╔═╡ 0311c9f7-17e3-48f0-82ca-ced37b37ac3b
+# ╔═╡ 7165151d-a8c5-4c4a-a26d-cf33137b9677
 md"""
-## ConSubG
+## CombinationsFromTree
 """
 
-# ╔═╡ b5fec0fc-b99c-47d7-b0ea-79a37c38e072
-@test all(i in sort.(ConSubG(4,G)) for i in sort.([[1,2,3,5],[1,2,4,5],[1,3,4,5],[1,2,3,4]])) && all(i in sort.([[1,2,3,5],[1,2,4,5],[1,3,4,5],[1,2,3,4]]) for i in sort.(ConSubG(4,G)))
+# ╔═╡ 4589587d-475c-4267-b639-89e05ef2762a
+@test @btime CombinationsFromTree(T_from_algorithm,4) == [[4,3,2,1],[3,2,8,1],[5,2,8,1],[7,6,8,1]]
+=======
+
+>>>>>>> df0355b7003b85301bf20995c0f99e33991ed407
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -411,13 +492,9 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
-Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
-MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
-MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
 
 [compat]
 BenchmarkTools = "~1.3.2"
@@ -425,13 +502,9 @@ CairoMakie = "~0.10.1"
 Combinatorics = "~1.0.2"
 GraphMakie = "~0.5.1"
 Graphs = "~1.7.4"
-Memoization = "~0.2.0"
 MetaGraphs = "~0.7.1"
-MolecularGraph = "~0.12.0"
-MolecularGraphKernels = "~0.8.5"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.49"
-ProfileCanvas = "~0.1.6"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -440,7 +513,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "515200ad80b06afd24a4d81d0e8bf0961c892d09"
+project_hash = "4a8b94875553ef19344deb706fb4d15cfe49995a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -470,12 +543,6 @@ deps = ["Colors"]
 git-tree-sha1 = "e81c509d2c8e49592413bfb0bb3b08150056c79d"
 uuid = "27a7e980-b3e6-11e9-2bcd-0b925532e340"
 version = "0.4.1"
-
-[[deps.Aqua]]
-deps = ["Compat", "Pkg", "Test"]
-git-tree-sha1 = "cee4fc289106df4d2d7f25f3918211b271e38bb0"
-uuid = "4c88cf16-eb10-579e-8560-4a9242c79595"
-version = "0.5.6"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -613,12 +680,6 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "0.5.2+0"
 
-[[deps.Compose]]
-deps = ["Base64", "Colors", "DataStructures", "Dates", "IterTools", "JSON", "LinearAlgebra", "Measures", "Printf", "Random", "Requires", "Statistics", "UUIDs"]
-git-tree-sha1 = "d853e57661ba3a57abcdaa201f4c9917a93487a2"
-uuid = "a81c6b42-2e10-5240-aca2-a61377ecd94b"
-version = "0.9.4"
-
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
 git-tree-sha1 = "fb21ddd70a051d882a1686a5a550990bbe371a95"
@@ -649,10 +710,6 @@ version = "1.0.0"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
-
-[[deps.DelimitedFiles]]
-deps = ["Mmap"]
-uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[deps.DensityInterface]]
 deps = ["InverseFunctions", "Test"]
@@ -824,12 +881,6 @@ deps = ["GeometryBasics", "Graphs", "LinearAlgebra", "Makie", "NetworkLayout", "
 git-tree-sha1 = "3e2a15c851ea53cc28501c600f3df30647e3885b"
 uuid = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 version = "0.5.1"
-
-[[deps.GraphPlot]]
-deps = ["ArnoldiMethod", "ColorTypes", "Colors", "Compose", "DelimitedFiles", "Graphs", "LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "5cd479730a0cb01f880eff119e9803c13f214cab"
-uuid = "a2cc645c-3eea-5389-862e-a155d0052231"
-version = "0.5.2"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -1042,12 +1093,6 @@ version = "1.3.0"
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
-[[deps.LazyJSON]]
-deps = ["JSON", "OrderedCollections", "PropertyDicts"]
-git-tree-sha1 = "ce08411caa70e0c9e780f142f59debd89a971738"
-uuid = "fc18253b-5e1b-504c-a4a2-9ece4944c004"
-version = "0.2.2"
-
 [[deps.LazyModules]]
 git-tree-sha1 = "a560dd966b386ac9ae60bdd3a3d3a326062d3c3e"
 uuid = "8cdb02fc-e678-4876-92c5-9defec4f444e"
@@ -1178,17 +1223,6 @@ deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 version = "2.28.0+0"
 
-[[deps.Measures]]
-git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
-uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
-version = "0.3.2"
-
-[[deps.Memoization]]
-deps = ["MacroTools"]
-git-tree-sha1 = "2f6913923a0cb8046134f5cbf8b4d7ba3c856a1d"
-uuid = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
-version = "0.2.0"
-
 [[deps.MetaGraphs]]
 deps = ["Graphs", "JLD2", "Random"]
 git-tree-sha1 = "2af69ff3c024d13bde52b34a2a7d6887d4e7b438"
@@ -1209,18 +1243,6 @@ version = "1.1.0"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
-
-[[deps.MolecularGraph]]
-deps = ["DelimitedFiles", "JSON", "LinearAlgebra", "Printf", "Requires", "Statistics", "Unmarshal", "YAML", "coordgenlibs_jll", "libinchi_jll"]
-git-tree-sha1 = "d59b9b59f8f3750f8110b2cd1d0c8ec408aab3fe"
-uuid = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
-version = "0.12.0"
-
-[[deps.MolecularGraphKernels]]
-deps = ["Aqua", "Cairo", "Colors", "Compose", "Distributed", "GraphPlot", "Graphs", "JLD2", "MetaGraphs", "MolecularGraph", "PeriodicTable", "PrecompileSignatures", "ProgressMeter", "RDKitMinimalLib", "SharedArrays"]
-git-tree-sha1 = "5b2628b172c03234e6515723a1a23986530cbb37"
-uuid = "bf3818bd-b6bb-4954-8baa-32c32282e633"
-version = "0.8.5"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -1253,11 +1275,6 @@ version = "0.4.4"
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
-
-[[deps.Nullables]]
-git-tree-sha1 = "8f87854cc8f3685a60689d8edecaa29d2251979b"
-uuid = "4d1e1d77-625e-5b40-9113-a560ec7a8ecd"
-version = "1.0.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "6862738f9796b3edc1c09d0890afce4eca9e7e93"
@@ -1362,12 +1379,6 @@ git-tree-sha1 = "8175fc2b118a3755113c8e68084dc1a9e63c61ee"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "2.5.3"
 
-[[deps.PeriodicTable]]
-deps = ["Base64", "Test", "Unitful"]
-git-tree-sha1 = "5ed1e2691eb13b6e955aff1b7eec0b2401df208c"
-uuid = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
-version = "1.1.3"
-
 [[deps.Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b4f5d02549a10e20780a24fce72bea96b6329e29"
@@ -1408,11 +1419,6 @@ git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
 uuid = "647866c9-e3ac-4575-94e7-e3d426903924"
 version = "0.1.2"
 
-[[deps.PrecompileSignatures]]
-git-tree-sha1 = "18ef344185f25ee9d51d80e179f8dad33dc48eb1"
-uuid = "91cefc8d-f054-46dc-8f8c-26e11d7c5411"
-version = "3.0.3"
-
 [[deps.Preferences]]
 deps = ["TOML"]
 git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
@@ -1427,22 +1433,11 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 deps = ["Printf"]
 uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
-[[deps.ProfileCanvas]]
-deps = ["Base64", "JSON", "Pkg", "Profile", "REPL"]
-git-tree-sha1 = "e42571ce9a614c2fbebcaa8aab23bbf8865c624e"
-uuid = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
-version = "0.1.6"
-
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
 git-tree-sha1 = "d7a7aef8f8f2d537104f170139553b14dfe39fe9"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.7.2"
-
-[[deps.PropertyDicts]]
-git-tree-sha1 = "8cf3b5cea994cfa9f238e19c3946a39cf051896c"
-uuid = "f8a19df8-e894-5f55-a973-672c1158cbca"
-version = "0.1.2"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -1467,18 +1462,6 @@ deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "97aa253e65b784fd13e83774cadc95b38011d734"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.6.0"
-
-[[deps.RDKitMinimalLib]]
-deps = ["JSON", "RDKit_jll"]
-git-tree-sha1 = "56837668e23c773b2537aceae7f3588ad4227077"
-uuid = "44044271-7623-48dc-8250-42433c44e4b7"
-version = "1.2.0"
-
-[[deps.RDKit_jll]]
-deps = ["Artifacts", "FreeType2_jll", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll", "boost_jll"]
-git-tree-sha1 = "d8653fafde3ff0f0dde0cc4bb0e4d4820946fd33"
-uuid = "03d1d220-30e6-562a-9e1a-3062d7b56d75"
-version = "2022.9.4+0"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1657,12 +1640,6 @@ git-tree-sha1 = "ab6083f09b3e617e34a956b43e9d51b824206932"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 version = "1.1.1"
 
-[[deps.StringEncodings]]
-deps = ["Libiconv_jll"]
-git-tree-sha1 = "33c0da881af3248dafefb939a21694b97cfece76"
-uuid = "69024149-9ee7-55f6-a4c4-859efe599b68"
-version = "0.3.6"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "GPUArraysCore", "StaticArraysCore", "Tables"]
 git-tree-sha1 = "b03a3b745aa49b566f128977a7dd1be8711c5e71"
@@ -1750,18 +1727,6 @@ git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
 
-[[deps.Unitful]]
-deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "d3f95a76c89777990d3d968ded5ecf12f9a0ad72"
-uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.12.3"
-
-[[deps.Unmarshal]]
-deps = ["JSON", "LazyJSON", "Missings", "Nullables", "Requires"]
-git-tree-sha1 = "ee46863309f8f942249e1df1b74ba3088ff0f151"
-uuid = "cbff2730-442d-58d7-89d1-8e530c41eb02"
-version = "0.4.4"
-
 [[deps.WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
@@ -1828,28 +1793,10 @@ git-tree-sha1 = "79c31e7844f6ecf779705fbc12146eb190b7d845"
 uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.4.0+3"
 
-[[deps.YAML]]
-deps = ["Base64", "Dates", "Printf", "StringEncodings"]
-git-tree-sha1 = "dbc7f1c0012a69486af79c8bcdb31be820670ba2"
-uuid = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
-version = "0.4.8"
-
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 version = "1.2.12+3"
-
-[[deps.boost_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "7a89efe0137720ca82f99e8daa526d23120d0d37"
-uuid = "28df3c45-c428-5900-9ff8-a3135698ca75"
-version = "1.76.0+1"
-
-[[deps.coordgenlibs_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "8a0fdb746dfc75758d0abea3196f5edfcbbebd79"
-uuid = "f6050b86-aaaf-512f-8549-0afff1b4d57f"
-version = "3.0.1+0"
 
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1879,12 +1826,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
 uuid = "f638f0a6-7fb0-5443-88ba-1cc74229b280"
 version = "2.0.2+0"
-
-[[deps.libinchi_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "034ee07d3b387a4ca1a153a43a0c46549b6749ba"
-uuid = "172afb32-8f1c-513b-968f-184fcd77af72"
-version = "1.5.1+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -1935,33 +1876,42 @@ version = "3.5.0+0"
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
+<<<<<<< HEAD
 # ╠═533a49e6-5074-40b6-98dd-e0149d061ee2
 # ╠═204b1899-9dc0-401c-a9e8-fbf50d686385
 # ╠═a409df2f-11f9-4e7a-bed4-f23084c51d3c
 # ╠═a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
-# ╠═1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
-# ╠═b03079c8-4b16-46b2-a4d7-3b3b0bfe63dc
-# ╠═8aa97840-db7f-4d18-a66f-461ad96b6d80
-# ╠═a4559079-82f6-4052-a426-9f9065ca9718
+# ╟─7df41749-dc0b-465c-8f44-116c2113825e
+# ╠═6117b57b-6a1f-4e37-a3e4-aa06860e50a7
+# ╠═0a374b35-f05b-485e-9235-555b24607d2a
+# ╠═3ce072fc-5b1f-4036-a98c-bad424713f17
+=======
+# ╟─533a49e6-5074-40b6-98dd-e0149d061ee2
+# ╠═87474e0b-68ae-460b-a55a-c775c53f5329
+# ╠═b011072b-26ee-46cc-93dc-21da41735cbf
+# ╠═90c235fe-b4e3-47d2-8a17-1a9b2ab555a0
+# ╠═da77db77-d190-4d35-8048-58455b6ab502
+# ╠═f779c287-5e48-41ce-81f6-9c71acd42de5
+# ╠═dc5d82a6-0224-4cde-8ae3-22a03b95aeea
+# ╠═5eb8a428-cfb8-4352-986b-e3749ba8ff61
+# ╠═f251ce28-01c2-4e5a-b98e-528c27593f4c
+# ╠═204b1899-9dc0-401c-a9e8-fbf50d686385
+# ╠═ae706fcf-85e1-4742-bcac-462ec1985593
+# ╠═0cb3b41b-6888-48c8-9df9-42e9cf353350
+# ╠═fa48e421-e69e-4250-a6dd-018d3e22d859
+# ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
+# ╠═d580f065-abcd-4973-9ee0-74503631e893
+# ╠═3a41c332-b1d3-4bc6-88ab-694fcf30f40c
+# ╠═9783151f-d874-4363-8599-083f6840963b
+# ╟─a409df2f-11f9-4e7a-bed4-f23084c51d3c
+# ╠═a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
+# ╠═260f2f9b-9882-4421-ba18-874ef012ccbf
+# ╠═c0c2d21b-bb4a-4f9a-9c0d-3d6e16474415
+>>>>>>> df0355b7003b85301bf20995c0f99e33991ed407
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
 # ╠═fb1033e9-85e3-4b38-97b0-052d20596bd4
-# ╠═4b2eac9e-1e3a-4436-b7be-44cf45da1df8
-# ╠═6ec1a0c2-9705-414e-b3c3-d01ce03f5737
-# ╠═da08d62f-440a-4545-be16-642aa9df3f91
-# ╠═7589593c-25a5-4ede-bb26-5a8566c14b93
-# ╠═a518b188-467a-457f-855b-e32ae425c8c9
-# ╠═98d1f7fa-6193-4751-b664-1d2bae161f4b
-# ╠═f465756d-2379-4da3-999e-f0fbff6ac37b
-# ╠═93cc842f-7dd0-4b4e-9506-d9bd41d4a0ee
-# ╠═6e4fcccd-9775-4170-bbc0-0bea4fce0a11
-# ╠═a483f8a3-c581-4492-ae58-3f34a8da290f
-# ╠═464d9cf5-d881-4a70-a1ab-c8e4da4195fe
-# ╠═9aba6044-2ab8-40c5-b3fb-b2522c1c2684
-# ╠═937bff3b-7dad-4a8a-85e6-39e3b566e562
-# ╠═f2b962c1-68d4-45f8-a3c0-d0083751132c
-# ╠═0432ac11-c93b-48a9-963e-3ef1acc056b8
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
@@ -1975,19 +1925,23 @@ version = "3.5.0+0"
 # ╠═1c3fa5eb-bf0d-4db1-9445-030c7168a5da
 # ╠═4a0b0efc-759d-486a-97b5-9868e99f602f
 # ╠═a0290968-0909-45f8-ade9-b58e87c15626
-# ╠═bca7b24e-d8df-4efa-ab40-8651488596e3
+# ╟─bca7b24e-d8df-4efa-ab40-8651488596e3
 # ╠═bacf3047-c762-434f-8937-e9531f7b8f42
 # ╠═674b36d8-b7fb-4c80-949f-666e1d4f51af
-# ╠═ee99192f-7e90-412e-b57b-901ee6bbeec8
-# ╠═ae706fcf-85e1-4742-bcac-462ec1985593
-# ╠═0cb3b41b-6888-48c8-9df9-42e9cf353350
-# ╠═fa48e421-e69e-4250-a6dd-018d3e22d859
-# ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
-# ╠═d580f065-abcd-4973-9ee0-74503631e893
-# ╠═4cbc1f5e-0721-49df-92bf-05ac715288aa
-# ╠═340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
-# ╠═6c56c473-7fb6-4252-a979-1fb293dfe769
-# ╠═0311c9f7-17e3-48f0-82ca-ced37b37ac3b
-# ╠═b5fec0fc-b99c-47d7-b0ea-79a37c38e072
+<<<<<<< HEAD
+# ╟─13a05703-c2a1-4a3e-a927-255a0126e8eb
+# ╠═a21a5f4c-613f-4c9e-8b1b-9113b700c1b4
+# ╠═e00e06f8-cae3-4af9-9e7b-99c30d5b97c0
+# ╠═200b3138-4bc7-4477-bd40-a16b843d62fd
+# ╠═cb11b9fb-0b67-41f1-b581-23dc4371b79f
+# ╠═018e1495-fe16-4047-928f-cb6d242ec8fe
+# ╠═c3c9b7b6-c2d2-4673-9bca-59e7ce5fdbc8
+# ╠═13f556cf-ba68-401d-88b2-8b0630b89a01
+# ╠═1c93c859-9321-4d87-a587-5741112ebf02
+# ╟─7165151d-a8c5-4c4a-a26d-cf33137b9677
+# ╠═4589587d-475c-4267-b639-89e05ef2762a
+=======
+# ╠═13a05703-c2a1-4a3e-a927-255a0126e8eb
+>>>>>>> df0355b7003b85301bf20995c0f99e33991ed407
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
