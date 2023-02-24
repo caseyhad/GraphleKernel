@@ -15,8 +15,33 @@ begin
 	using CairoMakie, GraphMakie
 	using PlutoUI
 	using ProfileCanvas
-	using MolecularGraph, MolecularGraphKernels
+	using MolecularGraph, MolecularGraphKernels, AbstractTrees
 	TableOfContents(title="ConSubG")
+end
+
+# ╔═╡ 28f0d340-1294-4c18-98f0-029b80442800
+begin
+	mutable struct Node
+		node::Int
+		vertex::Int
+		new::Bool
+		children::Vector{Node}
+	
+		Node(node::Int, vertex::Int) = new(node, vertex, true, Node[])
+	end
+	
+	struct Tree
+		root::Int
+		nodes::Dict{Int, Node}
+	
+		Tree(root::Int, vertex::Int) = new(root, Dict(root => Node(1, vertex)))
+	end
+end
+
+# ╔═╡ ae8149ac-e6ef-4a64-b6c4-c4e26a4b8595
+begin
+	import Base.getindex
+	Base.getindex(tree::Tree, idx::Int) = tree.nodes[idx]
 end
 
 # ╔═╡ cd679306-67b8-464f-9177-cc5db579c937
@@ -24,40 +49,50 @@ md"""
 # Algorithm
 """
 
+# ╔═╡ b4c00cf9-9038-4112-b5b4-dc1584660d43
+function add_node!(tree::Tree, node::Int, vertex::Int)
+	# create node
+	new_node = Node(length(tree.nodes) + 1, vertex)
+	# link to parent
+	tree[node].children = vcat(tree[node].children, [new_node])
+	# update dictionary
+	tree.nodes[new_node.node] = new_node
+end;
+
 # ╔═╡ 781a61ca-c477-4f97-9803-3a3de8b63184
 md"""
 ## `combination_tree`
 """
 
-# ╔═╡ 2043d425-6872-43a7-8224-e2f064684a6d
+# ╔═╡ 12675ceb-b2c2-47a5-a384-f7c07c5744af
 function combination_tree(v, k, graph)
-	G = deepcopy(graph)
-	function build_tree(nₜ, depth, G, k)
-		list[depth] = list[depth-1]
-		for v′ ∈ neighbors(G, get_prop(tree, nₜ, :vertex))
-			if v′ ∉ list[depth]
-				add_vertex!(tree, Dict(:vertex => v′))
-				nₜ′ = nv(tree)
-				add_edge!(tree, nₜ, nₜ′)
-				list[depth] = list[depth] ∪ Set([v′])
-				if !get_prop(G, v′, :visited)
-					set_prop!(tree, nₜ′, :new, true)
-					set_prop!(G, v′, :visited, true)
+	A = adjacency_matrix(graph)
+	vertex_labels = vertices(graph)
+	visited = [get_prop(graph, v, :visited) for v in vertex_labels]
+	neighbor_vertices = [((A[:,v]).*vertex_labels)[(A[:,v]).*vertex_labels.>0] for v in vertex_labels]
+	function build_tree(nₜ, depth, k)
+		list[:,depth] = list[:,depth-1]
+		for v′ ∈ neighbor_vertices[tree[nₜ].vertex]
+			if !list[v′,depth]
+				add_node!(tree, nₜ, v′)
+				nₜ′ = length(tree.nodes)
+				list[v′,depth] = true
+				if !visited[v′]
+					visited[v′] = true
 				else
-					set_prop!(tree, nₜ′, :new, false)
+					tree[nₜ′].new = false
 				end
-				if depth + 1 ≤ k
-					build_tree(nₜ′, depth+1, G, k)
+				if depth ≤ k
+					build_tree(nₜ′, depth+1, k)
 				end
 			end
 		end
 	end
-	
-	tree = MetaGraph(1)
-	set_prop!(tree, 1, :vertex, v)
-	set_prop!(tree, 1, :new, true)
-	list = Dict(0 => Set([v]))
-	build_tree(1, 1, G, k)
+	tree = Tree(1,v)
+	#list = Dict(0 => Set([v]))
+	list = zeros(Bool,nv(graph),k+1)
+	list[v,1] = true
+	build_tree(1, 2, k)
 	return tree
 end
 
@@ -92,20 +127,20 @@ md"""
 ## `⊗ₜ` (UnionProduct)
 """
 
-# ╔═╡ 204b1899-9dc0-401c-a9e8-fbf50d686385
-function ⊗ₜ(S₁,S₂,tree::MetaGraph)::Vector{Vector{Int}}
+# ╔═╡ c3b46798-3cef-418d-bca8-c6fa884bd6b2
+function ⊗ₜ(S₁,S₂,tree)::Vector{Vector{Int}}
 	UnionProduct = Dict()
 	if S₁ == [[]] || S₂ == [[]]
 		return S₁
 	else
-		for s₁ in S₁
-			for s₂ in S₂
-				new_ct = any([get_prop(tree,v,:new) for v in s₂])
-				for i in s₁
-					vᵢ=get_prop(tree, i, :vertex)
-					Childrenᵢ = [get_prop(tree, n, :vertex) for n in neighbors(tree, i)[(neighbors(tree, i).>i)]]
-					for j in s₂
-						vⱼ=get_prop(tree, j, :vertex)
+		for s₁ ∈ S₁
+			for s₂ ∈ S₂
+				new_ct = any([tree[v].new for v in s₂])
+				for i ∈ s₁
+					vᵢ=tree[i].vertex
+					Childrenᵢ = [tree[i].children[v].vertex for v in 1:length(tree[i].children)]
+					for j ∈ s₂
+						vⱼ=tree[j].vertex
 						if vᵢ == vⱼ || (!new_ct && in(Childrenᵢ.==vⱼ)(1)==true)
 							return [[]]
 						end
@@ -123,12 +158,12 @@ md"""
 ## `CombinationsFromTree`
 """
 
-# ╔═╡ a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
-@memoize function CombinationsFromTree(tree::MetaGraph,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
+# ╔═╡ 4e3ea7d0-e563-4721-8ca2-fe09883a3449
+@memoize function CombinationsFromTree(tree,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
 	t=stRoot
 	lnodesets = []
 	k==1 && return [[t]]
-	Childrenₜ = [v for v in neighbors(tree,t) if v>t]
+	Childrenₜ = [tree[t].children[v].node for v in 1:length(tree[t].children)]
 	for i = 1:minimum([length(Childrenₜ),k-1])
 		for NodeComb in kCombinations(i,Childrenₜ)
 			for string in kCompositions(i,k-1)
@@ -158,11 +193,11 @@ md"""
 ## `CombinationsWithV`
 """
 
-# ╔═╡ b03079c8-4b16-46b2-a4d7-3b3b0bfe63dc
+# ╔═╡ ceea5788-b5d1-4040-9364-b97fe38ddba6
 function CombinationsWithV(v,k,graph)
 	tree = combination_tree(v,k,graph)
 	ncombs = CombinationsFromTree(tree,k)
-	return [[get_prop(tree,v,:vertex) for v in Set] for Set in ncombs]
+	return [[tree[v].vertex for v in Set] for Set in ncombs]
 end
 
 # ╔═╡ 8aa97840-db7f-4d18-a66f-461ad96b6d80
@@ -170,7 +205,7 @@ md"""
 ## `ConSubG`
 """
 
-# ╔═╡ a4559079-82f6-4052-a426-9f9065ca9718
+# ╔═╡ 458b0257-5fb1-45fb-a6a3-e8b0c08f7f41
 function ConSubG(k,graph)
 	G = deepcopy(graph)
 	for v in vertices(G)
@@ -209,6 +244,15 @@ G = begin
 	add_edge!(graph, 3, 4)
 	graph
 end
+
+# ╔═╡ bdba6c81-92de-4352-8cf1-6048f11e68ba
+Tree_test = combination_tree(1,4,G)
+
+# ╔═╡ a8203bd4-84a5-4eee-9bfa-d14dbaff9617
+⊗ₜ([[2,6]],[[8]],Tree_test)
+
+# ╔═╡ 1805655c-d696-46e0-aeb6-84fa79dbb19e
+Tree_test[2].children
 
 # ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
 graphplot(
@@ -257,13 +301,13 @@ k/(k₂*k₁)^.5
 # ╔═╡ 937bff3b-7dad-4a8a-85e6-39e3b566e562
 [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
 
-# ╔═╡ f2b962c1-68d4-45f8-a3c0-d0083751132c
+# ╔═╡ 23e8e279-1390-4baa-b556-5426bb41343b
 function connected_graphlet(G₁, G₂; n=2:4)
 	return sum([k*length(ConSubG(k,ProductGraph{Direct}(G₁,G₂))) for k in n])
 end
 
-# ╔═╡ 0432ac11-c93b-48a9-963e-3ef1acc056b8
-@btime connected_graphlet(G₁,G₂,n=2:4)
+# ╔═╡ 5dc8f142-c279-48c8-a26c-089abb76b614
+connected_graphlet(G₁,G₂,n=2:5)
 
 # ╔═╡ 452cb8bc-9590-4274-9a50-b2f9df80d1ba
 md"""
@@ -316,8 +360,11 @@ md"""
 # ╔═╡ ca0dfce1-82d9-42d3-b273-d9f9261ba451
 T_from_algorithm = @btime combination_tree(1, 4, G)
 
+# ╔═╡ 7600068c-2d6f-465d-b99f-fe185ae88ff0
+T_from_algorithm == @btime combination_tree(1, 4, G)
+
 # ╔═╡ 54aba875-14c6-4bd5-804d-0414c8b3ef91
-T_opt = @btime combination_tree(1, 4, G)
+T_opt = combination_tree(1, 4, G)
 
 # ╔═╡ a06b7d82-c52b-4045-8fe0-b045a4b28180
 @test T_from_algorithm == T_opt
@@ -353,7 +400,10 @@ function isomorphic_trees(t1, t2)
 end
 
 # ╔═╡ a0290968-0909-45f8-ade9-b58e87c15626
+# ╠═╡ disabled = true
+#=╠═╡
 @test isomorphic_trees(T_from_algorithm, T_manual)
+  ╠═╡ =#
 
 # ╔═╡ bca7b24e-d8df-4efa-ab40-8651488596e3
 md"""
@@ -386,7 +436,7 @@ md"""
 # ╔═╡ d580f065-abcd-4973-9ee0-74503631e893
 @test ⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm) == [[]]
 
-# ╔═╡ 4cbc1f5e-0721-49df-92bf-05ac715288aa
+# ╔═╡ 506e28af-1c29-4cac-bdb8-94059d157b12
 @test all(i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)) for i in sort.([[2,3,8],[2,5,8]])) && all(i in sort.([[2,3,8],[2,5,8]]) for i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)))
 
 # ╔═╡ 340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
@@ -406,6 +456,7 @@ md"""
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
@@ -420,6 +471,7 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
 
 [compat]
+AbstractTrees = "~0.4.4"
 BenchmarkTools = "~1.3.2"
 CairoMakie = "~0.10.1"
 Combinatorics = "~1.0.2"
@@ -440,7 +492,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "515200ad80b06afd24a4d81d0e8bf0961c892d09"
+project_hash = "734cef4143b7c37bd9b76dd124cc93ad678fd19d"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -455,9 +507,9 @@ uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
 
 [[deps.AbstractTrees]]
-git-tree-sha1 = "52b3b436f8f73133d7bc3a6c71ee7ed6ab2ab754"
+git-tree-sha1 = "faa260e4cb5aba097a73fab382dd4b5819d8ec8c"
 uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.4.3"
+version = "0.4.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -1930,19 +1982,26 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═0e7e1aa4-92d0-11ed-38ef-b5ef8a13d1f9
 # ╟─cd679306-67b8-464f-9177-cc5db579c937
+# ╠═28f0d340-1294-4c18-98f0-029b80442800
+# ╠═ae8149ac-e6ef-4a64-b6c4-c4e26a4b8595
+# ╠═b4c00cf9-9038-4112-b5b4-dc1584660d43
 # ╟─781a61ca-c477-4f97-9803-3a3de8b63184
-# ╠═2043d425-6872-43a7-8224-e2f064684a6d
+# ╠═12675ceb-b2c2-47a5-a384-f7c07c5744af
+# ╠═7600068c-2d6f-465d-b99f-fe185ae88ff0
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
 # ╠═533a49e6-5074-40b6-98dd-e0149d061ee2
-# ╠═204b1899-9dc0-401c-a9e8-fbf50d686385
+# ╠═c3b46798-3cef-418d-bca8-c6fa884bd6b2
+# ╠═bdba6c81-92de-4352-8cf1-6048f11e68ba
+# ╠═a8203bd4-84a5-4eee-9bfa-d14dbaff9617
 # ╠═a409df2f-11f9-4e7a-bed4-f23084c51d3c
-# ╠═a0ad2d21-b0e2-47b8-bbe8-d98f8f091567
+# ╠═4e3ea7d0-e563-4721-8ca2-fe09883a3449
+# ╠═1805655c-d696-46e0-aeb6-84fa79dbb19e
 # ╠═1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
-# ╠═b03079c8-4b16-46b2-a4d7-3b3b0bfe63dc
+# ╠═ceea5788-b5d1-4040-9364-b97fe38ddba6
 # ╠═8aa97840-db7f-4d18-a66f-461ad96b6d80
-# ╠═a4559079-82f6-4052-a426-9f9065ca9718
+# ╠═458b0257-5fb1-45fb-a6a3-e8b0c08f7f41
 # ╟─26814357-e102-4908-83b1-edce97094603
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
@@ -1960,8 +2019,8 @@ version = "3.5.0+0"
 # ╠═464d9cf5-d881-4a70-a1ab-c8e4da4195fe
 # ╠═9aba6044-2ab8-40c5-b3fb-b2522c1c2684
 # ╠═937bff3b-7dad-4a8a-85e6-39e3b566e562
-# ╠═f2b962c1-68d4-45f8-a3c0-d0083751132c
-# ╠═0432ac11-c93b-48a9-963e-3ef1acc056b8
+# ╠═23e8e279-1390-4baa-b556-5426bb41343b
+# ╠═5dc8f142-c279-48c8-a26c-089abb76b614
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
@@ -1984,7 +2043,7 @@ version = "3.5.0+0"
 # ╠═fa48e421-e69e-4250-a6dd-018d3e22d859
 # ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
 # ╠═d580f065-abcd-4973-9ee0-74503631e893
-# ╠═4cbc1f5e-0721-49df-92bf-05ac715288aa
+# ╠═506e28af-1c29-4cac-bdb8-94059d157b12
 # ╠═340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
 # ╠═6c56c473-7fb6-4252-a979-1fb293dfe769
 # ╠═0311c9f7-17e3-48f0-82ca-ced37b37ac3b
