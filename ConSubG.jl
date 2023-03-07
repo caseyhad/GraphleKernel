@@ -64,38 +64,6 @@ md"""
 ## `combination_tree`
 """
 
-# ╔═╡ 12675ceb-b2c2-47a5-a384-f7c07c5744af
-function combination_tree(v, k, graph)
-	A = adjacency_matrix(graph)
-	vertex_labels = vertices(graph)
-	visited = [get_prop(graph, v, :visited) for v in vertex_labels]
-	neighbor_vertices = [((A[:,v]).*vertex_labels)[(A[:,v]).*vertex_labels.>0] for v in vertex_labels]
-	function build_tree(nₜ, depth, k)
-		list[:,depth] = list[:,depth-1]
-		for v′ ∈ neighbor_vertices[tree[nₜ].vertex]
-			if !list[v′,depth]
-				add_node!(tree, nₜ, v′)
-				nₜ′ = length(tree.nodes)
-				list[v′,depth] = true
-				if !visited[v′]
-					visited[v′] = true
-				else
-					tree[nₜ′].new = false
-				end
-				if depth ≤ k
-					build_tree(nₜ′, depth+1, k)
-				end
-			end
-		end
-	end
-	tree = Tree(1,v)
-	#list = Dict(0 => Set([v]))
-	list = zeros(Bool,nv(graph),k+1)
-	list[v,1] = true
-	build_tree(1, 2, k)
-	return tree
-end
-
 # ╔═╡ f8fef698-1490-45e7-af27-5d3cc2268826
 md"""
 ## `kCombinations` & `kCompositions`
@@ -113,7 +81,7 @@ kCombinations(k, S) = collect(combinations(S, k))
 		return [[sum_value]]
 	else 
 		return unique(
-			reduce(vcat, collect.([permutations(c, elements) for c in filter(c -> sum(c) == sum_value,collect(with_replacement_combinations(1:elements, elements)
+			reduce(vcat, collect.([permutations(c, elements) for c in filter(c -> sum(c) == sum_value,collect(with_replacement_combinations(1:(sum_value-elements+1), elements)
 						)
 					)
 				])
@@ -193,32 +161,10 @@ md"""
 ## `CombinationsWithV`
 """
 
-# ╔═╡ ceea5788-b5d1-4040-9364-b97fe38ddba6
-function CombinationsWithV(v,k,graph)
-	tree = combination_tree(v,k,graph)
-	ncombs = CombinationsFromTree(tree,k)
-	return [[tree[v].vertex for v in Set] for Set in ncombs]
-end
-
 # ╔═╡ 8aa97840-db7f-4d18-a66f-461ad96b6d80
 md"""
 ## `ConSubG`
 """
-
-# ╔═╡ 458b0257-5fb1-45fb-a6a3-e8b0c08f7f41
-function ConSubG(k,graph)
-	G = deepcopy(graph)
-	for v in vertices(G)
-		set_prop!(G, v, :visited, false)
-	end
-	list = Dict()
-	queue = reverse(vertices(G))
-	for v in queue
-		list = list ∪ CombinationsWithV(v,k,G)
-		rem_vertex!(G,v)
-	end
-	return list
-end
 
 # ╔═╡ 26814357-e102-4908-83b1-edce97094603
 md"""
@@ -245,15 +191,6 @@ G = begin
 	graph
 end
 
-# ╔═╡ bdba6c81-92de-4352-8cf1-6048f11e68ba
-Tree_test = combination_tree(1,4,G)
-
-# ╔═╡ a8203bd4-84a5-4eee-9bfa-d14dbaff9617
-⊗ₜ([[2,6]],[[8]],Tree_test)
-
-# ╔═╡ 1805655c-d696-46e0-aeb6-84fa79dbb19e
-Tree_test[2].children
-
 # ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
 graphplot(
 	G; 
@@ -277,37 +214,8 @@ viz_graph(G₁)
 # ╔═╡ a518b188-467a-457f-855b-e32ae425c8c9
 viz_graph(G₂)
 
-# ╔═╡ 98d1f7fa-6193-4751-b664-1d2bae161f4b
-DPG1 = ProductGraph{Direct}(G₁,G₁)
-
-# ╔═╡ f465756d-2379-4da3-999e-f0fbff6ac37b
-DPG2 = ProductGraph{Direct}(G₂,G₂)
-
-# ╔═╡ 93cc842f-7dd0-4b4e-9506-d9bd41d4a0ee
-k₂ = length(ConSubG(4,DPG2))
-
-# ╔═╡ 6e4fcccd-9775-4170-bbc0-0bea4fce0a11
-k₁ = length(ConSubG(4,DPG1))
-
-# ╔═╡ a483f8a3-c581-4492-ae58-3f34a8da290f
-DPG = ProductGraph{Direct}(G₁,G₂)
-
-# ╔═╡ 464d9cf5-d881-4a70-a1ab-c8e4da4195fe
-k = length(ConSubG(4,DPG))
-
-# ╔═╡ 9aba6044-2ab8-40c5-b3fb-b2522c1c2684
-k/(k₂*k₁)^.5
-
-# ╔═╡ 937bff3b-7dad-4a8a-85e6-39e3b566e562
-[[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
-
-# ╔═╡ 23e8e279-1390-4baa-b556-5426bb41343b
-function connected_graphlet(G₁, G₂; n=2:4)
-	return sum([k*length(ConSubG(k,ProductGraph{Direct}(G₁,G₂))) for k in n])
-end
-
-# ╔═╡ 5dc8f142-c279-48c8-a26c-089abb76b614
-connected_graphlet(G₁,G₂,n=2:5)
+# ╔═╡ 43cb09d2-8450-4cad-9c88-c199533cd592
+get_prop(G₂, Edge(6,7),:label)
 
 # ╔═╡ 452cb8bc-9590-4274-9a50-b2f9df80d1ba
 md"""
@@ -321,31 +229,113 @@ md"""
 
 # ╔═╡ 78ba4241-08d5-44a7-b20f-457b02421c11
 T_manual = begin
-	local graph = MetaGraph(8)
-	local labels = [1, 2, 3, 4, 4, 4, 3, 5]
-	local new = [true, true, true, true, false, false, false, true]
-	for v in vertices(graph)
-		set_prop!(graph, v, :vertex, labels[v])
-		set_prop!(graph, v, :new, new[v])
-	end
-	add_edge!(graph, 1, 2)
-	add_edge!(graph, 1, 6)
-	add_edge!(graph, 1, 8)
-	add_edge!(graph, 2, 3)
-	add_edge!(graph, 2, 5)
-	add_edge!(graph, 3, 4)
-	add_edge!(graph, 6, 7)
-	graph
+	tree = Tree(1,1)
+	add_node!(tree,1,2)
+	add_node!(tree,2,3)
+	add_node!(tree,3,4)
+	add_node!(tree,2,4)
+	add_node!(tree,1,4)
+	add_node!(tree,6,3)
+	add_node!(tree,1,5)
+	tree[5].new = false
+	tree[6].new = false
+	tree[7].new = false
+	tree
 end
 
-# ╔═╡ fc0851cd-c0a1-4fbb-9790-0074d35601f0
-graphplot(
-	T_manual; 
-	nlabels=[
-		"$(get_prop(T_manual, v, :vertex))$(get_prop(T_manual, v, :new) ? "*" : "")"
-		for v in vertices(T_manual)
-	]
-)
+# ╔═╡ 12675ceb-b2c2-47a5-a384-f7c07c5744af
+function combination_tree(v, k, graph)
+	A = adjacency_matrix(graph)
+	vertex_labels = vertices(graph)
+	visited = [get_prop(graph, v, :visited) for v in vertex_labels]
+	neighbor_vertices = [((A[:,v]).*vertex_labels)[(A[:,v]).*vertex_labels.>0] for v in vertex_labels]
+	function build_tree(nₜ, depth, k)
+		list[:,depth] = list[:,depth-1]
+		for v′ ∈ neighbor_vertices[tree[nₜ].vertex]
+			if !list[v′,depth]
+				add_node!(tree, nₜ, v′)
+				nₜ′ = length(tree.nodes)
+				list[v′,depth] = true
+				if !visited[v′]
+					visited[v′] = true
+				else
+					tree[nₜ′].new = false
+				end
+				if depth ≤ k
+					build_tree(nₜ′, depth+1, k)
+				end
+			end
+		end
+	end
+	tree = Tree(1,v)
+	list = zeros(Bool,nv(graph),k+1)
+	list[v,1] = true
+	build_tree(1, 2, k)
+	return tree
+end
+
+# ╔═╡ ceea5788-b5d1-4040-9364-b97fe38ddba6
+function CombinationsWithV(v,k,graph)
+	tree = combination_tree(v,k,graph)
+	ncombs = CombinationsFromTree(tree,k)
+	return [[tree[v].vertex for v in Set] for Set in ncombs]
+end
+
+# ╔═╡ 458b0257-5fb1-45fb-a6a3-e8b0c08f7f41
+function ConSubG(k,graph)
+	G = deepcopy(graph)
+	for v in vertices(G)
+		set_prop!(G, v, :visited, false)
+	end
+	list = Dict()
+	queue = reverse(vertices(G))
+	for v in queue
+		list = list ∪ CombinationsWithV(v,k,G)
+		rem_vertex!(G,v)
+	end
+	return list
+end
+
+# ╔═╡ 98d1f7fa-6193-4751-b664-1d2bae161f4b
+begin
+	DPG1 = ProductGraph{Direct}(G₁,G₁)
+	DPG2 = ProductGraph{Direct}(G₂,G₂)
+	k₂ = length(ConSubG(4,DPG2))
+	k₁ = length(ConSubG(4,DPG1))
+	DPG = ProductGraph{Direct}(G₁,G₂)
+	k = length(ConSubG(4,DPG))
+	k/(k₂*k₁)^.5
+end
+
+# ╔═╡ 937bff3b-7dad-4a8a-85e6-39e3b566e562
+graphlets = [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
+
+# ╔═╡ af68c248-c1d4-416f-965f-fdaaa8b3a270
+nodesets = [[v for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
+
+# ╔═╡ 18e879b1-3c90-48f3-9226-2104bc2cd7d6
+neighbor_nodes = [[[x for x in neighbors(DPG,v) if x ∈ nodesets[i]] for v in nodesets[i]] for i in 1:length(nodesets)]
+
+# ╔═╡ 5b69e700-9b69-413d-9671-d6f2eb3645a9
+node_labels = [[get_prop(DPG,v,:label) for v in nodesets[i]] for i in 1:length(nodesets)]
+
+# ╔═╡ 1d1fa2b3-bb1f-4157-b421-36bc765a3e17
+[[[get_prop(DPG,Edge(v,x),:label) for x in neighbors(DPG,v) if x ∈ nodesets[i]] for v in nodesets[i]] for i in 1:length(nodesets)]
+
+# ╔═╡ 23e8e279-1390-4baa-b556-5426bb41343b
+function connected_graphlet(G₁, G₂; n=2:4)
+	if length(n) == 1
+		return k*length(ConSubG(n,ProductGraph{Direct}(G₁,G₂)))
+	else
+		return sum([k*length(ConSubG(k,ProductGraph{Direct}(G₁,G₂))) for k in n])
+	end
+end
+
+# ╔═╡ 5dc8f142-c279-48c8-a26c-089abb76b614
+@btime connected_graphlet(G₁,G₂,n=6)
+
+# ╔═╡ b1329776-e997-4f7b-b759-be9890b0a081
+T_from_algorithm = combination_tree(1, 4, G)
 
 # ╔═╡ afb9b973-bbf3-4db6-9a1e-77c7d5d36771
 md"""
@@ -357,53 +347,24 @@ md"""
 ## Combination Tree
 """
 
-# ╔═╡ ca0dfce1-82d9-42d3-b273-d9f9261ba451
-T_from_algorithm = @btime combination_tree(1, 4, G)
-
-# ╔═╡ 7600068c-2d6f-465d-b99f-fe185ae88ff0
-T_from_algorithm == @btime combination_tree(1, 4, G)
-
-# ╔═╡ 54aba875-14c6-4bd5-804d-0414c8b3ef91
-T_opt = combination_tree(1, 4, G)
-
-# ╔═╡ a06b7d82-c52b-4045-8fe0-b045a4b28180
-@test T_from_algorithm == T_opt
-
-# ╔═╡ 9c3abb0b-5d5f-4108-839a-f951bd92d847
-graphplot(
-	T_from_algorithm; 
-	nlabels=[
-		"$(get_prop(T_from_algorithm, v, :vertex))$(get_prop(T_from_algorithm, v, :new) ? "*" : "")"
-		for v in vertices(T_from_algorithm)
-	]
-)
-
-# ╔═╡ 1c3fa5eb-bf0d-4db1-9445-030c7168a5da
-function vertex_relation(t1, v1, t2, v2)
-	return get_prop(t1, v1, :vertex) == get_prop(t2, v2, :vertex) &&
-		get_prop(t1, v1, :new) == get_prop(t2, v2, :new)
-end
-
 # ╔═╡ 4a0b0efc-759d-486a-97b5-9868e99f602f
 function isomorphic_trees(t1, t2)
-	isomorphic = false
-	vf2(
-		SimpleGraph(t1), 
-		SimpleGraph(t2), 
-		IsomorphismProblem();
-		vertex_relation=(v1, v2)->vertex_relation(t1, v1, t2, v2)
-	) do vmap
-		isomorphic = true
+	if !(length(t1.nodes) == length(t2.nodes))
 		return false
 	end
-	return isomorphic
+	for i = 1:length(t1.nodes)
+		n₁ = t1[i]
+		n₂ = t2[i]
+		if n₁.node != n₂.node || n₁.vertex != n₂.vertex || sort([n₁.children[v].node for v in 1:length(n₁.children)]) != sort([n₂.children[v].node for v in 1:length(n₂.children)]) !!
+		sort([n₁.children[v].vertex for v in 1:length(n₁.children)]) != sort([n₂.children[v].vertex for v in 1:length(n₂.children)]) 
+			return false
+		end
+	end
+	return true
 end
 
-# ╔═╡ a0290968-0909-45f8-ade9-b58e87c15626
-# ╠═╡ disabled = true
-#=╠═╡
-@test isomorphic_trees(T_from_algorithm, T_manual)
-  ╠═╡ =#
+# ╔═╡ 24e0e836-8132-4447-ac43-0361e8129ea4
+@test isomorphic_trees(T_manual, T_from_algorithm)
 
 # ╔═╡ bca7b24e-d8df-4efa-ab40-8651488596e3
 md"""
@@ -444,6 +405,12 @@ md"""
 
 # ╔═╡ 6c56c473-7fb6-4252-a979-1fb293dfe769
 @test all(i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)) for i in sort.([[6,7,8]])) && all(i in sort.([[6,7,8]]) for i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)))
+
+# ╔═╡ aeb8c50d-289d-4ea2-85da-64e04cfdaef4
+@test all(i in sort.(CombinationsFromTree(T_from_algorithm,4,1)) for i in sort.([[4,3,2,1],[3,2,8,1],[5,2,8,1],[7,6,8,1]])) && all(i in sort.([[4,3,2,1],[3,2,8,1],[5,2,8,1],[7,6,8,1]]) for i in sort.(CombinationsFromTree(T_from_algorithm,4,1)))
+
+# ╔═╡ fe6ad315-d87a-48ed-966a-8674cb60d37b
+@test all(i in sort.(CombinationsWithV(1,4,G)) for i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]])) && all(i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]]) for i in sort.(CombinationsWithV(1,4,G)))
 
 # ╔═╡ 0311c9f7-17e3-48f0-82ca-ced37b37ac3b
 md"""
@@ -1987,17 +1954,13 @@ version = "3.5.0+0"
 # ╠═b4c00cf9-9038-4112-b5b4-dc1584660d43
 # ╟─781a61ca-c477-4f97-9803-3a3de8b63184
 # ╠═12675ceb-b2c2-47a5-a384-f7c07c5744af
-# ╠═7600068c-2d6f-465d-b99f-fe185ae88ff0
 # ╟─f8fef698-1490-45e7-af27-5d3cc2268826
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
 # ╠═533a49e6-5074-40b6-98dd-e0149d061ee2
 # ╠═c3b46798-3cef-418d-bca8-c6fa884bd6b2
-# ╠═bdba6c81-92de-4352-8cf1-6048f11e68ba
-# ╠═a8203bd4-84a5-4eee-9bfa-d14dbaff9617
 # ╠═a409df2f-11f9-4e7a-bed4-f23084c51d3c
 # ╠═4e3ea7d0-e563-4721-8ca2-fe09883a3449
-# ╠═1805655c-d696-46e0-aeb6-84fa79dbb19e
 # ╠═1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
 # ╠═ceea5788-b5d1-4040-9364-b97fe38ddba6
 # ╠═8aa97840-db7f-4d18-a66f-461ad96b6d80
@@ -2006,34 +1969,28 @@ version = "3.5.0+0"
 # ╟─ac1d08a0-c612-43dc-b9a1-f8bf2090354b
 # ╠═7ef6028a-3426-4614-9d3f-f37989b352af
 # ╠═fb1033e9-85e3-4b38-97b0-052d20596bd4
+# ╠═b1329776-e997-4f7b-b759-be9890b0a081
 # ╠═4b2eac9e-1e3a-4436-b7be-44cf45da1df8
 # ╠═6ec1a0c2-9705-414e-b3c3-d01ce03f5737
 # ╠═da08d62f-440a-4545-be16-642aa9df3f91
 # ╠═7589593c-25a5-4ede-bb26-5a8566c14b93
 # ╠═a518b188-467a-457f-855b-e32ae425c8c9
 # ╠═98d1f7fa-6193-4751-b664-1d2bae161f4b
-# ╠═f465756d-2379-4da3-999e-f0fbff6ac37b
-# ╠═93cc842f-7dd0-4b4e-9506-d9bd41d4a0ee
-# ╠═6e4fcccd-9775-4170-bbc0-0bea4fce0a11
-# ╠═a483f8a3-c581-4492-ae58-3f34a8da290f
-# ╠═464d9cf5-d881-4a70-a1ab-c8e4da4195fe
-# ╠═9aba6044-2ab8-40c5-b3fb-b2522c1c2684
 # ╠═937bff3b-7dad-4a8a-85e6-39e3b566e562
+# ╠═43cb09d2-8450-4cad-9c88-c199533cd592
+# ╠═af68c248-c1d4-416f-965f-fdaaa8b3a270
+# ╠═18e879b1-3c90-48f3-9226-2104bc2cd7d6
+# ╠═5b69e700-9b69-413d-9671-d6f2eb3645a9
+# ╠═1d1fa2b3-bb1f-4157-b421-36bc765a3e17
 # ╠═23e8e279-1390-4baa-b556-5426bb41343b
 # ╠═5dc8f142-c279-48c8-a26c-089abb76b614
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
-# ╠═fc0851cd-c0a1-4fbb-9790-0074d35601f0
 # ╟─afb9b973-bbf3-4db6-9a1e-77c7d5d36771
 # ╟─0e04854a-7a25-4588-88aa-0c9ab12a8bd0
-# ╠═ca0dfce1-82d9-42d3-b273-d9f9261ba451
-# ╠═54aba875-14c6-4bd5-804d-0414c8b3ef91
-# ╠═a06b7d82-c52b-4045-8fe0-b045a4b28180
-# ╠═9c3abb0b-5d5f-4108-839a-f951bd92d847
-# ╠═1c3fa5eb-bf0d-4db1-9445-030c7168a5da
 # ╠═4a0b0efc-759d-486a-97b5-9868e99f602f
-# ╠═a0290968-0909-45f8-ade9-b58e87c15626
+# ╠═24e0e836-8132-4447-ac43-0361e8129ea4
 # ╠═bca7b24e-d8df-4efa-ab40-8651488596e3
 # ╠═bacf3047-c762-434f-8937-e9531f7b8f42
 # ╠═674b36d8-b7fb-4c80-949f-666e1d4f51af
@@ -2046,6 +2003,8 @@ version = "3.5.0+0"
 # ╠═506e28af-1c29-4cac-bdb8-94059d157b12
 # ╠═340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
 # ╠═6c56c473-7fb6-4252-a979-1fb293dfe769
+# ╠═aeb8c50d-289d-4ea2-85da-64e04cfdaef4
+# ╠═fe6ad315-d87a-48ed-966a-8674cb60d37b
 # ╠═0311c9f7-17e3-48f0-82ca-ced37b37ac3b
 # ╠═b5fec0fc-b99c-47d7-b0ea-79a37c38e072
 # ╟─00000000-0000-0000-0000-000000000001
