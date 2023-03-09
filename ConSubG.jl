@@ -19,6 +19,9 @@ begin
 	TableOfContents(title="ConSubG")
 end
 
+# ╔═╡ 25775650-609a-408f-9c3e-862a796bec9b
+
+
 # ╔═╡ 28f0d340-1294-4c18-98f0-029b80442800
 begin
 	mutable struct Node
@@ -323,16 +326,16 @@ node_labels = [[get_prop(DPG,v,:label) for v in nodesets[i]] for i in 1:length(n
 [[[get_prop(DPG,Edge(v,x),:label) for x in neighbors(DPG,v) if x ∈ nodesets[i]] for v in nodesets[i]] for i in 1:length(nodesets)]
 
 # ╔═╡ 23e8e279-1390-4baa-b556-5426bb41343b
-function connected_graphlet(G₁, G₂; n=2:4)
+function connected_graphlet(G::ProductGraph; n=2:4)::Int
 	if length(n) == 1
-		return k*length(ConSubG(n,ProductGraph{Direct}(G₁,G₂)))
+		return k*length(ConSubG(n,G))
 	else
-		return sum([k*length(ConSubG(k,ProductGraph{Direct}(G₁,G₂))) for k in n])
+		return sum([k*length(ConSubG(k,G)) for k in n])
 	end
 end
 
 # ╔═╡ 5dc8f142-c279-48c8-a26c-089abb76b614
-@btime connected_graphlet(G₁,G₂,n=6)
+connected_graphlet(DPG,n=2:5)
 
 # ╔═╡ b1329776-e997-4f7b-b759-be9890b0a081
 T_from_algorithm = combination_tree(1, 4, G)
@@ -1948,6 +1951,7 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╠═0e7e1aa4-92d0-11ed-38ef-b5ef8a13d1f9
+# ╠═25775650-609a-408f-9c3e-862a796bec9b
 # ╟─cd679306-67b8-464f-9177-cc5db579c937
 # ╠═28f0d340-1294-4c18-98f0-029b80442800
 # ╠═ae8149ac-e6ef-4a64-b6c4-c4e26a4b8595
