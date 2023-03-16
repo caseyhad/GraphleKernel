@@ -207,10 +207,10 @@ graphplot(
 	])
 
 # ╔═╡ 4b2eac9e-1e3a-4436-b7be-44cf45da1df8
-G₁ₛₘᵢₗₑ = "c1ccccc1CC(C)NC"
+G₁ₛₘᵢₗₑ = "COP(=O)(OC)OC(Br)C(Cl)(Cl)Br"
 
 # ╔═╡ 6ec1a0c2-9705-414e-b3c3-d01ce03f5737
-G₂ₛₘᵢₗₑ = "c1(N(O)O)c(C)c(N(O)=O)cc(N(O)=O)c1"
+G₂ₛₘᵢₗₑ = "COP(N)(=O)OC"
 
 # ╔═╡ da08d62f-440a-4545-be16-642aa9df3f91
 	G₁,G₂ = MetaGraph.(smilestomol.([G₁ₛₘᵢₗₑ,G₂ₛₘᵢₗₑ]))
@@ -329,25 +329,33 @@ end
 # ╔═╡ 1d45477a-1dd0-4fed-a5db-018e41a4aede
 viz_graph(DPG)
 
-# ╔═╡ 35e0fc75-3922-474a-861f-644633c20924
-sum([(length(Set([n[s][1] for s in 1:4])) == length([n[s][1] for s in 1:4]) && (length(Set([n[s][2] for s in 1:4])) == length([n[s][2] for s in 1:4]))) for n in [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]])
-
-# ╔═╡ 937bff3b-7dad-4a8a-85e6-39e3b566e562
-graphlets = [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
-
 # ╔═╡ 870aefd2-0de2-4510-a613-11f68cb3712f
 begin
+	graphlets = [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
 	valid_graphlets_from_DPG = []
+	graphlets_from_G1 = Set([])
+	graphlets_from_G2 = Set([])
 	for i = 1:length(graphlets)
 		if [(length(Set([n[s][1] for s in 1:4])) == length([n[s][1] for s in 1:4]) && (length(Set([n[s][2] for s in 1:4])) == length([n[s][2] for s in 1:4]))) for n in graphlets][i]
 			push!(valid_graphlets_from_DPG,graphlets[i])
+			push!(graphlets_from_G1,[sort([graphlets[i][s][1] for s in 1:4]),sort([graphlets[i][s][2] for s in 1:4])])
+			push!(graphlets_from_G2,sort([graphlets[i][s][2] for s in 1:4]))
 		end
 	end
 	valid_graphlets_from_DPG
 end
 
+# ╔═╡ dde3db89-a364-4bcd-b27e-1c1439245ba8
+graphlets_from_G1
+
+# ╔═╡ fe0297b2-d02d-4ffd-bb47-24d87edd2d2e
+graphlets_from_G2
+
 # ╔═╡ a5000181-b1b9-4dc7-adc6-5502e9980046
 Set([graphlets[1][s][1] for s in 1:4])
+
+# ╔═╡ 35e0fc75-3922-474a-861f-644633c20924
+sum([(length(Set([n[s][1] for s in 1:4])) == length([n[s][1] for s in 1:4]) && (length(Set([n[s][2] for s in 1:4])) == length([n[s][2] for s in 1:4]))) for n in [[get_prop(DPG,v,:v₁v₂_pair) for v in NodeSet] for NodeSet in ConSubG(4,DPG)]])
 
 # ╔═╡ af68c248-c1d4-416f-965f-fdaaa8b3a270
 nodesets = [[v for v in NodeSet] for NodeSet in ConSubG(4,DPG)]
@@ -362,7 +370,7 @@ node_labels = [[get_prop(DPG,v,:label) for v in nodesets[i]] for i in 1:length(n
 [[[get_prop(DPG,Edge(v,x),:label) for x in neighbors(DPG,v) if x ∈ nodesets[i]] for v in nodesets[i]] for i in 1:length(nodesets)]
 
 # ╔═╡ 5dc8f142-c279-48c8-a26c-089abb76b614
-@btime connected_graphlet(DPG,n=4:5)
+@btime connected_graphlet(DPG,n=4)
 
 # ╔═╡ db2fbe2d-0f13-4835-80c1-31cbdba9be4a
 connected_graphlet(ProductGraph{Direct}(G),n=2:4)
@@ -2021,8 +2029,9 @@ version = "3.5.0+0"
 # ╠═98d1f7fa-6193-4751-b664-1d2bae161f4b
 # ╠═1d45477a-1dd0-4fed-a5db-018e41a4aede
 # ╠═870aefd2-0de2-4510-a613-11f68cb3712f
+# ╠═dde3db89-a364-4bcd-b27e-1c1439245ba8
+# ╠═fe0297b2-d02d-4ffd-bb47-24d87edd2d2e
 # ╠═35e0fc75-3922-474a-861f-644633c20924
-# ╠═937bff3b-7dad-4a8a-85e6-39e3b566e562
 # ╠═a5000181-b1b9-4dc7-adc6-5502e9980046
 # ╠═af68c248-c1d4-416f-965f-fdaaa8b3a270
 # ╠═18e879b1-3c90-48f3-9226-2104bc2cd7d6
