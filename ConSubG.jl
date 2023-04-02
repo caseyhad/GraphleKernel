@@ -151,7 +151,7 @@ md"""
 					end
 				end
 				fail && continue
-				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), [S[i] for i in 1:length(S)])
+				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), reverse([S[i] for i in 1:length(S)]))
 					lnodesets = lnodesets ∪ [comProduct ∪ [t]]
 				end
 			end
@@ -208,10 +208,10 @@ graphplot(
 	])
 
 # ╔═╡ 4b2eac9e-1e3a-4436-b7be-44cf45da1df8
-G₁ₛₘᵢₗₑ = "OCCO"#"OCC1OC(C(C1O)O)(CO)OC1OC(COC2OC(CO)C(C(C2O)O)O)C(C(C1O)O)O"
+G₁ₛₘᵢₗₑ = "Cc1ccc2c(c1)S(=O)(=O)NC2=O"
 
 # ╔═╡ 6ec1a0c2-9705-414e-b3c3-d01ce03f5737
-G₂ₛₘᵢₗₑ = "OCCC(O)"#"OCC1OC(OC2(CO)OC(C(C2O)O)CO)C(C(C1OC1OC(CO)C(C(C1O)O)O)O)O"
+G₂ₛₘᵢₗₑ = "Clc1ccc2c(c1)S(=O)(=O)NC2=O"
 
 # ╔═╡ da08d62f-440a-4545-be16-642aa9df3f91
 	G₁,G₂ = MetaGraph.(smilestomol.([G₁ₛₘᵢₗₑ,G₂ₛₘᵢₗₑ]))
@@ -275,7 +275,7 @@ function combination_tree(v, k, graph)
 				else
 					tree[nₜ′].new = false
 				end
-				if depth ≤ k
+				if depth ≤ k - 1
 					build_tree(nₜ′, depth+1, k)
 				end
 			end
@@ -321,7 +321,7 @@ end
 
 
 # ╔═╡ d2d43ed6-daab-44d8-88c6-0a57df48f6a8
-connected_graphlet2(G₁,G₂,n=4)
+connected_graphlet2(G₁,G₂,n=2:6)
 
 # ╔═╡ e4522386-686d-42cf-ba12-49a952d6f79b
 begin
@@ -338,36 +338,12 @@ begin
 	graphlet_product = [sort.([i,j]) for i in cg1 for j in cg2]
 	graphlets_iso = (filter(graphlet_iso -> is_isomorphic(induced_subgraph(G₁, graphlet_iso[1])[1], induced_subgraph(G₂, graphlet_iso[2])[1]),graphlet_product))
 
-	overcount = filter(g -> g ∉ graphlets_iso, graphlets_MPG)
+	overcount = filter(g -> g ∉ graphlets_MPG, graphlets_iso)
+	[length(unique(graphlets_MPG)),length(unique(graphlets_iso))]
 end
 
 # ╔═╡ 69699533-aff7-4a5b-93e9-c8b30f633277
 [graphlet_product[n][1] for n in eachindex(graphlet_product)]
-
-# ╔═╡ 53063a98-db8c-4566-a0a6-36808540f0d7
-overcount[1][1]
-
-# ╔═╡ de5c5bff-8251-486a-be6e-221294221363
-s₁, s′₁ = induced_subgraph(G₁, overcount[1][1]), induced_subgraph(G₂, overcount[1][2])
-
-
-# ╔═╡ 3bf6934f-8492-4ba0-9a59-bb857ad44745
-viz_graph(s₁[1])
-
-# ╔═╡ 5b1d29f7-f3ba-44fb-9395-9c1acb15923e
-viz_graph(s′₁[1])
-
-# ╔═╡ eea95e22-f1bd-4608-9f7a-c26e245bdc5d
-is_isomorphic(s₁[1],s′₁[1])
-
-# ╔═╡ f51a63fa-3817-493f-ab89-e1c169c433d0
-is_isomorphic(induced_subgraph(G₁, overcount[1][1])[1], induced_subgraph(G₂, overcount[1][2])[1])
-
-# ╔═╡ e9438cc3-bb66-43cd-bdbd-98794673f9be
-[6,7,8,12,13] in sort.(ConSubG(5,G₂))
-
-# ╔═╡ 6ffa41b1-f02b-409e-9361-180c2f6f2043
-[2,3,6,7,8] in sort.(ConSubG(5,G₁))
 
 # ╔═╡ 5fb971e6-0a58-49b2-b548-61428a0dd718
 function connected_graphlet_isomorphism(G₁,G₂; n=2:4)
@@ -399,10 +375,10 @@ function connected_graphlet_isomorphism(G₁,G₂; n=2:4)
 end
 
 # ╔═╡ 98d1f7fa-6193-4751-b664-1d2bae161f4b
-begin
-	K₂ = connected_graphlet_isomorphism(G₂,G₂,n=2:6)
-	K₁ = connected_graphlet_isomorphism(G₁,G₁,n=2:6)
-	K = connected_graphlet_isomorphism(G₁,G₂,n=2:6)
+@btime begin
+	K₂ = connected_graphlet_isomorphism(G₂,G₂,n=3:5)
+	K₁ = connected_graphlet_isomorphism(G₁,G₁,n=3:5)
+	K = connected_graphlet_isomorphism(G₁,G₂,n=3:5)
 	K/(K₂*K₁)^.5
 end
 
@@ -410,13 +386,16 @@ end
 connected_graphlet_isomorphism(G₁,G₂,n=5)/5
 
 # ╔═╡ e8c72c50-7d11-4b0a-99d2-a46bf652f41c
-connected_graphlet_isomorphism(G₁,G₁,n=4)
+connected_graphlet_isomorphism(G₁,G₂,n=2:6)
 
 # ╔═╡ adbbdd41-02f9-4203-8f57-467296de8fb1
-[ConSubG(n,DPG) for n in 2:6];
+[ConSubG(n,DPG) for n in 2:5];
 
 # ╔═╡ 87e30cf0-b2c9-45b7-82bc-05ca0b83e303
 [[ConSubG(k, G₁),ConSubG(k, G₂)] for k in 2:6];
+
+# ╔═╡ 86b6dc4e-2da8-478f-98ba-0249e06d8504
+ConSubG(4,G₁)
 
 # ╔═╡ b1329776-e997-4f7b-b759-be9890b0a081
 T_from_algorithm = combination_tree(1, 4, G)
@@ -491,7 +470,7 @@ md"""
 @test all(i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)) for i in sort.([[6,7,8]])) && all(i in sort.([[6,7,8]]) for i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)))
 
 # ╔═╡ aeb8c50d-289d-4ea2-85da-64e04cfdaef4
-@test all(i in sort.(CombinationsFromTree(T_from_algorithm,4,1)) for i in sort.([[4,3,2,1],[3,2,8,1],[5,2,8,1],[7,6,8,1]])) && all(i in sort.([[4,3,2,1],[3,2,8,1],[5,2,8,1],[7,6,8,1]]) for i in sort.(CombinationsFromTree(T_from_algorithm,4,1)))
+ConSubG(4,G)
 
 # ╔═╡ fe6ad315-d87a-48ed-966a-8674cb60d37b
 @test all(i in sort.(CombinationsWithV(1,4,G)) for i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]])) && all(i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]]) for i in sort.(CombinationsWithV(1,4,G)))
@@ -535,16 +514,16 @@ end
 G_testgraph = MetaGraph.(smilestomol.("OCC1OC(C(C1O)O)(CO)OC1OC(COC2OC(CO)C(C(C2O)O)O)C(C(C1O)O)O"))
 
 # ╔═╡ c5d66e70-238e-4e65-805c-4990ef578bf7
-test_graph = induced_subgraph(G_testgraph, [2, 3, 4, 5, 6, 7, 8, 9, 10,11])[1]
+test_graph = induced_subgraph(G_testgraph, [1, 2, 3, 4, 5, 6, 7])[1]
 
 # ╔═╡ 1613e0be-f5f2-4804-a267-c0a3f5ce5caf
 viz_graph(test_graph)
 
 # ╔═╡ 32fde538-0652-45f7-a304-ca9f29e8c8c5
-[1,2,3,5,6] in sort.(ConSubG(5,test_graph))
+[2,3,4,6,7] in sort.(ConSubG(5,test_graph))
 
 # ╔═╡ 606d7a3b-b978-4e58-9b00-d802335392b2
-ConSubG(5,test_graph)
+sort(sort.(ConSubG(5,test_graph)))
 
 # ╔═╡ d55e0e9a-e95e-46cb-a38c-6433fe7e65a1
 begin
@@ -552,9 +531,63 @@ begin
 	for v in vertices(G_test)
 		set_prop!(G_test, v, :visited, false)
 	end
-	rem_vertex!(G_test,1)
-	combination_tree(2, 5, G_test)
+	test_tree = combination_tree(7, 5, G_test)
 end
+
+# ╔═╡ 95a4cb18-1b20-4380-860d-a1b3919f7312
+function CombinationsFromTree_test(tree,k::Int,stRoot::Int=1)::Vector{Vector{Int}}
+	t=stRoot
+	lnodesets = []
+	k==1 && return [[t]]
+	Childrenₜ = [tree[t].children[v].node for v in 1:length(tree[t].children)]
+	for i = 1:minimum([length(Childrenₜ),k-1])
+		for NodeComb in kCombinations(i,Childrenₜ)
+			for string in kCompositions(i,k-1)
+				S = Dict()
+				fail = false
+				for pos in 1:i
+					stRoot = NodeComb[pos]
+					size = string[pos]
+					S[pos] = CombinationsFromTree(tree,size,stRoot)
+					if S[pos] == []
+						fail  = true
+						break
+					end
+				end
+				fail && continue
+				for comProduct in reduce((a,b)->⊗ₜ(a,b,tree), reverse([S[i] for i in 1:length(S)]))
+					@show [S[i] for i in 1:length(S)]
+					lnodesets = lnodesets ∪ [comProduct ∪ [t]]
+				end
+			end
+		end
+	end
+	return lnodesets[length.(lnodesets) .== k]
+end
+
+# ╔═╡ c1cf601d-1898-416a-8de2-3e1dfc25d78b
+ncombs = (CombinationsFromTree_test(test_tree,5,1))
+
+# ╔═╡ 4fb5a7c9-bff3-4122-b4dc-f89cc07e7189
+sort.([[test_tree[v].vertex for v in Set] for Set in ncombs])
+
+# ╔═╡ d2e588d0-e662-46a5-a93c-6a96fa03bf22
+a = CombinationsFromTree(test_tree,3,2)
+
+# ╔═╡ 02e7584b-eef2-4da8-be6c-143c2e76fd24
+b = CombinationsFromTree(test_tree,1,8)
+
+# ╔═╡ c06dfdb4-e123-45db-b7a4-93b76b8ea8cd
+⊗ₜ(b,a,test_tree).∪[1]
+
+# ╔═╡ eec9db90-aac6-4c30-b4be-ba8505b3167d
+
+
+# ╔═╡ 937af624-b747-49d9-82a5-8d5cb11593bd
+any(neighbors(G,4).==[3,2,5])
+
+# ╔═╡ c5f33391-42d7-4be1-b337-dc64019e55cc
+collect(permutations(neighbors(G,4)))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2118,20 +2151,13 @@ version = "3.5.0+0"
 # ╠═10d031d1-e730-45a6-9d83-02c4717e5108
 # ╠═e4522386-686d-42cf-ba12-49a952d6f79b
 # ╠═69699533-aff7-4a5b-93e9-c8b30f633277
-# ╠═53063a98-db8c-4566-a0a6-36808540f0d7
-# ╠═e9438cc3-bb66-43cd-bdbd-98794673f9be
-# ╠═6ffa41b1-f02b-409e-9361-180c2f6f2043
-# ╠═de5c5bff-8251-486a-be6e-221294221363
-# ╠═3bf6934f-8492-4ba0-9a59-bb857ad44745
-# ╠═5b1d29f7-f3ba-44fb-9395-9c1acb15923e
-# ╠═eea95e22-f1bd-4608-9f7a-c26e245bdc5d
-# ╠═f51a63fa-3817-493f-ab89-e1c169c433d0
 # ╠═5fb971e6-0a58-49b2-b548-61428a0dd718
 # ╠═d2d43ed6-daab-44d8-88c6-0a57df48f6a8
 # ╠═adbbdd41-02f9-4203-8f57-467296de8fb1
 # ╠═b77fc29d-058d-428b-bc4d-e7e039e7299b
 # ╠═e8c72c50-7d11-4b0a-99d2-a46bf652f41c
 # ╠═87e30cf0-b2c9-45b7-82bc-05ca0b83e303
+# ╠═86b6dc4e-2da8-478f-98ba-0249e06d8504
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
@@ -2165,5 +2191,14 @@ version = "3.5.0+0"
 # ╠═32fde538-0652-45f7-a304-ca9f29e8c8c5
 # ╠═606d7a3b-b978-4e58-9b00-d802335392b2
 # ╠═d55e0e9a-e95e-46cb-a38c-6433fe7e65a1
+# ╠═95a4cb18-1b20-4380-860d-a1b3919f7312
+# ╠═c1cf601d-1898-416a-8de2-3e1dfc25d78b
+# ╠═4fb5a7c9-bff3-4122-b4dc-f89cc07e7189
+# ╠═d2e588d0-e662-46a5-a93c-6a96fa03bf22
+# ╠═02e7584b-eef2-4da8-be6c-143c2e76fd24
+# ╠═c06dfdb4-e123-45db-b7a4-93b76b8ea8cd
+# ╠═eec9db90-aac6-4c30-b4be-ba8505b3167d
+# ╠═937af624-b747-49d9-82a5-8d5cb11593bd
+# ╠═c5f33391-42d7-4be1-b337-dc64019e55cc
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
