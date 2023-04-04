@@ -17,6 +17,9 @@ begin
 	TableOfContents(title="ConSubG")
 end
 
+# ╔═╡ 0aa60dd3-e2cb-465e-89e7-dd117dfb231d
+using CSV
+
 # ╔═╡ 25775650-609a-408f-9c3e-862a796bec9b
 
 
@@ -541,7 +544,7 @@ begin
 end
 
 # ╔═╡ dd18809b-539c-4cd5-8822-e05ebb5d2ab6
-scaling_test_molecules = ["OCCO","NCC(=O)O","OCC(=O)CO","CN1C=CNC1=S","ON=Cc1ccco1","Cc1cc(O)nc(S)n1","O=C/C=C/c1ccccc1","CC(=O)/C=C/C1=CC=CC=C1","CCCCC1=CC(=O)NC(=S)N1","C1COC(=O)C2=C1C(=CC=C2)C=O","CCN(CC)c1cc(C)nc2ncnn12","Cl.Cc1ccc(cc1)N(CC2=NCCN2)c3ccc(O)cc3","CCOC(=O)N1C=CN(C)C1=S","COc1ccc(cc1)C2=COc3cc(O)ccc3C2=O","CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O","OCC1OC(Oc2cc(O)c3C(=O)CC(Oc3c2)c4ccc(O)cc4)C(O)C(O)C1O","OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O"]#,"CC=C1/CC(C)C(C)(O)C(=O)OCC2=CCN3CCC(OC1=O)C23","CC(=C)C1[C@H]2C[C@@]3(C)[C@](O)([C@@H]4O[C@@H]4[C@@]35CO5)[C@@H]1C(=O)O2"]
+scaling_test_molecules = ["OCCO","NCC(=O)O","OCC(=O)CO","CN1C=CNC1=S","ON=Cc1ccco1","Cc1cc(O)nc(S)n1","O=C/C=C/c1ccccc1","CC(=O)/C=C/C1=CC=CC=C1","CCCCC1=CC(=O)NC(=S)N1","C1COC(=O)C2=C1C(=CC=C2)C=O","CCN(CC)c1cc(C)nc2ncnn12","Cl.Cc1ccc(cc1)N(CC2=NCCN2)c3ccc(O)cc3","CCOC(=O)N1C=CN(C)C1=S","COc1ccc(cc1)C2=COc3cc(O)ccc3C2=O","CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O","OCC1OC(Oc2cc(O)c3C(=O)CC(Oc3c2)c4ccc(O)cc4)C(O)C(O)C1O","OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O","Cl.Cl.CCOC(CN1CCN(CC(C)C(=O)c2ccccc2)CC1)c3ccccc3","OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO","OC1=C(CC2=C(O)Oc3ccccc3C2=O)C(=O)c4ccccc4O1","CCN(CC)CC(C)(C)COC(=O)C(CO)c1ccccc1.OP(=O)(O)O","CC(=CCCC(=CCCC(=CCCC(=CCO)C)CO)C)C","NC(=N)c1ccc(OCCCCCOc2ccc(cc2)C(=N)N)cc1.OCCS(=O)(=O)O.OCCS(=O)(=O)O","CCC(C)(O)C(=O)OC1C2C(C)C(O)C3(O)OCC24C(CC5C(=CC(O)C(O)C5(C)C34)C)OC1=O"]#,"CC=C1/CC(C)C(C)(O)C(=O)OCC2=CCN3CCC(OC1=O)C23","CC(=C)C1[C@H]2C[C@@]3(C)[C@](O)([C@@H]4O[C@@H]4[C@@]35CO5)[C@@H]1C(=O)O2"]
 
 # ╔═╡ f59850c4-3e23-4e0f-be42-7c37c30fdf07
 scaling_test_molecules_graphs = MetaGraph.(smilestomol.(scaling_test_molecules))
@@ -551,14 +554,33 @@ begin
 	vector = vec([[ProductGraph{Modular}(G₁,G₂),G₁,G₂] for G₂ in scaling_test_molecules_graphs, G₁ in scaling_test_molecules_graphs])
 	G1s_G2_s = [vector[n][2:3] for n in 1:length(vector)]
 	MPGs = [vector[n][1] for n in 1:length(vector)]
-	node_scaling = DataFrame(nodes_in_MPG = [length(vertices(MPG)) for MPG ∈ MPGs],
-		time_to_compute_MPG = [@elapsed connected_graphlet2(G1,G2,n=4) for (G1,G2) ∈ G1s_G2_s],
-		time_to_compute_Iso = [@elapsed connected_graphlet_isomorphism(G1,G2,n=4) for (G1,G2) ∈ G1s_G2_s])
+	node_scaling = DataFrame(
+		
+		nodes_in_MPG = [length(vertices(MPG)) for MPG ∈ MPGs],
+		
+		time_to_compute_MPG = [min(
+			@elapsed(connected_graphlet2(G1,G2,n=4)),
+			@elapsed(connected_graphlet2(G1,G2,n=4)),
+			@elapsed(connected_graphlet2(G1,G2,n=4)))
+					for (G1,G2) ∈ G1s_G2_s],
+		time_to_compute_Iso = [min(
+			@elapsed(connected_graphlet_isomorphism(G1,G2,n=4)),
+			@elapsed(connected_graphlet_isomorphism(G1,G2,n=4)),
+			@elapsed(connected_graphlet_isomorphism(G1,G2,n=4)))
+					for (G1,G2) ∈ G1s_G2_s])
 	
 end
 
-# ╔═╡ 9a5430cc-9edf-4753-9bc3-a0183e6a5428
-G1s_G2_s
+# ╔═╡ 6bcf6010-4ea7-4b4e-88cb-071bca926a18
+G1s_G2_s[171]
+
+# ╔═╡ ef91efee-22fd-427e-af7e-2342d8399047
+begin
+	G_smile1 = "CCC(C)(O)C(=O)OC1C2C(C)C(O)C3(O)OCC24C(CC5C(=CC(O)C(O)C5(C)C34)C)OC1=O"
+	G_smile2 = "OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO"
+	g_a,g_b = MetaGraph.(smilestomol.([G_smile1,G_smile2]))
+	length(vertices(ProductGraph{Modular}(g_a,g_b)))
+end
 
 # ╔═╡ 7d6a5bd3-a64c-4370-a894-0c86f534f841
 @df node_scaling StatsPlots.scatter(:nodes_in_MPG, [:time_to_compute_MPG, :time_to_compute_Iso])
@@ -570,17 +592,24 @@ gt1 = MetaGraph(smilestomol("OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O"))
 gt2 = MetaGraph(smilestomol("CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O"))
 
 # ╔═╡ cbfc235b-0093-47fa-baed-34546fa14e41
-k_scaling = DataFrame(k = collect(2:11),
-		k_time_MPG = [@elapsed connected_graphlet2(gt1,gt2,n=g) for g ∈ 2:11],
-		k_time_Iso = [@elapsed connected_graphlet_isomorphism(gt1,gt2,n=g) for g ∈ 2:11])
+k_scaling = DataFrame(k = collect(2:8),
+		k_time_MPG = [@elapsed connected_graphlet2(gt1,gt2,n=g) for g ∈ 2:8],
+		k_time_Iso = [@elapsed connected_graphlet_isomorphism(gt1,gt2,n=g) for g ∈ 2:8])
 
 # ╔═╡ c015d546-cf4d-480d-86f3-c96194ab3e43
 @df k_scaling StatsPlots.scatter(:k, [:k_time_MPG, :k_time_Iso])
+
+# ╔═╡ fd7fce19-00bd-4dbc-a1fb-7b9e1bd3dcec
+DownloadButton(sprint(CSV.write, node_scaling),"node scaling")
+
+# ╔═╡ 3b443273-dbbe-4c40-b34e-820deaa24899
+DownloadButton(sprint(CSV.write, k_scaling),"k scaling")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -597,6 +626,7 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 BenchmarkTools = "~1.3.2"
+CSV = "~0.10.9"
 CairoMakie = "~0.10.1"
 Combinatorics = "~1.0.2"
 DataFrames = "~1.5.0"
@@ -618,7 +648,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "4f9ec8099d74abb4322eedf054e325fb3300c22f"
+project_hash = "bff0856c1d0a6090b6027490c9f507a556a6e372"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -725,6 +755,12 @@ version = "0.4.2"
 
 [[deps.CRC32c]]
 uuid = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
+
+[[deps.CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "SnoopPrecompile", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
+git-tree-sha1 = "c700cce799b51c9045473de751e9319bdd1c6e94"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.9"
 
 [[deps.Cairo]]
 deps = ["Cairo_jll", "Colors", "Glib_jll", "Graphics", "Libdl", "Pango_jll"]
@@ -963,6 +999,12 @@ deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "7be5f99f7d15578798f338f5433b6c432ea8037b"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 version = "1.16.0"
+
+[[deps.FilePathsBase]]
+deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
+git-tree-sha1 = "e27c4ebe80e8699540f2d6c805cc12203b614f12"
+uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
+version = "0.9.20"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -2189,6 +2231,12 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
+[[deps.WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.2"
+
 [[deps.Widgets]]
 deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
 git-tree-sha1 = "fcdae142c1cfc7d89de2d11e08721d0f2f86c98a"
@@ -2200,6 +2248,11 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
+
+[[deps.WorkerUtilities]]
+git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
+uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
+version = "1.6.1"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -2529,11 +2582,15 @@ version = "1.4.1+0"
 # ╠═dd18809b-539c-4cd5-8822-e05ebb5d2ab6
 # ╠═f59850c4-3e23-4e0f-be42-7c37c30fdf07
 # ╠═04c03530-6584-4d98-a447-6ff50335b178
-# ╠═9a5430cc-9edf-4753-9bc3-a0183e6a5428
+# ╠═6bcf6010-4ea7-4b4e-88cb-071bca926a18
+# ╠═ef91efee-22fd-427e-af7e-2342d8399047
 # ╠═7d6a5bd3-a64c-4370-a894-0c86f534f841
 # ╠═da3e4bd4-11ef-44a0-adc6-7e74691cc145
 # ╠═54f0f567-8d55-4107-8991-99c37f28edc0
 # ╠═cbfc235b-0093-47fa-baed-34546fa14e41
 # ╠═c015d546-cf4d-480d-86f3-c96194ab3e43
+# ╠═0aa60dd3-e2cb-465e-89e7-dd117dfb231d
+# ╠═fd7fce19-00bd-4dbc-a1fb-7b9e1bd3dcec
+# ╠═3b443273-dbbe-4c40-b34e-820deaa24899
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
