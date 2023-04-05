@@ -102,10 +102,13 @@ md"""
 ## `⊗ₜ` (UnionProduct)
 """
 
-# ╔═╡ c3b46798-3cef-418d-bca8-c6fa884bd6b2
+# ╔═╡ c233eb39-55eb-4663-88ef-9b432ed88a2a
 function ⊗ₜ(S₁,S₂,tree)
 	UnionProduct = Dict()
-	if S₁ == [[]] || S₂ == [[]]
+	if S₁ == [[]]
+		return UnionProduct
+	end
+	if S₂ == [[]]
 		return S₁
 	else
 		for s₁ ∈ S₁
@@ -127,10 +130,6 @@ function ⊗ₜ(S₁,S₂,tree)
 				end
 			end
 		end
-	end
-	if length(UnionProduct)==0
-		return [[]]
-	else
 	return UnionProduct
 	end
 end
@@ -167,7 +166,7 @@ md"""
 			end
 		end
 	end
-	return lnodesets[length.(lnodesets) .== k]
+	return lnodesets
 end
 
 # ╔═╡ 1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
@@ -180,58 +179,12 @@ md"""
 ## `ConSubG`
 """
 
-# ╔═╡ 26814357-e102-4908-83b1-edce97094603
-md"""
-# Example Setup
-"""
-
-# ╔═╡ ac1d08a0-c612-43dc-b9a1-f8bf2090354b
-md"""
-## Input Graph
-"""
-
-# ╔═╡ 7ef6028a-3426-4614-9d3f-f37989b352af
-G = begin
-	local graph = MetaGraph(5)
-	for v in vertices(graph)
-		set_prop!(graph, v, :visited, false)
-	end
-	add_edge!(graph, 1, 2)
-	add_edge!(graph, 1, 4)
-	add_edge!(graph, 1, 5)
-	add_edge!(graph, 2, 3)
-	add_edge!(graph, 2, 4)
-	add_edge!(graph, 3, 4)
-
-	for e in edges(graph)
-		set_prop!(graph, e, :label, 1)
-	end
-	graph
-end
-
-# ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
-graphplot(
-	G; 
-	nlabels=[
-		"$v$(get_prop(G, v, :visited) ? "*" : "")"
-		for v in vertices(G)
-	])
-
-# ╔═╡ 4b2eac9e-1e3a-4436-b7be-44cf45da1df8
-G₁ₛₘᵢₗₑ = "O=C/C=C/c1ccccc1"
-
-# ╔═╡ 6ec1a0c2-9705-414e-b3c3-d01ce03f5737
-G₂ₛₘᵢₗₑ = "OCC1OC(OC2(CO)OC(C(C2O)O)CO)C(C(C1OC1OC(CO)C(C(C1O)O)O)O)O"
-
-# ╔═╡ da08d62f-440a-4545-be16-642aa9df3f91
-	G₁,G₂ = MetaGraph.(smilestomol.([G₁ₛₘᵢₗₑ,G₂ₛₘᵢₗₑ]))
-
 # ╔═╡ 9bdc29ef-3a87-41cd-8b3a-12c0719e11b8
-function BF_ConSubG(k,G)
+function BF_ConSubG(k::Int,G)::Vector{Vector{Int}}
 	pos = collect(vertices(G))
 	s = length(pos)
 	Adj = adjacency_matrix(G)
-	for i ∈ vertices(G₁)
+	for i ∈ vertices(G)
 		Adj[i,i] = 1
 	end
 	if k>s
@@ -279,6 +232,52 @@ function BF_ConSubG(k,G)
 	return list
 end
 
+# ╔═╡ 26814357-e102-4908-83b1-edce97094603
+md"""
+# Example Setup
+"""
+
+# ╔═╡ ac1d08a0-c612-43dc-b9a1-f8bf2090354b
+md"""
+## Input Graph
+"""
+
+# ╔═╡ 7ef6028a-3426-4614-9d3f-f37989b352af
+G = begin
+	local graph = MetaGraph(5)
+	for v in vertices(graph)
+		set_prop!(graph, v, :visited, false)
+	end
+	add_edge!(graph, 1, 2)
+	add_edge!(graph, 1, 4)
+	add_edge!(graph, 1, 5)
+	add_edge!(graph, 2, 3)
+	add_edge!(graph, 2, 4)
+	add_edge!(graph, 3, 4)
+
+	for e in edges(graph)
+		set_prop!(graph, e, :label, 1)
+	end
+	graph
+end
+
+# ╔═╡ fb1033e9-85e3-4b38-97b0-052d20596bd4
+graphplot(
+	G; 
+	nlabels=[
+		"$v$(get_prop(G, v, :visited) ? "*" : "")"
+		for v in vertices(G)
+	])
+
+# ╔═╡ 4b2eac9e-1e3a-4436-b7be-44cf45da1df8
+G₁ₛₘᵢₗₑ = "c1ccccc1CC(C)NC"
+
+# ╔═╡ 6ec1a0c2-9705-414e-b3c3-d01ce03f5737
+G₂ₛₘᵢₗₑ = "c1(N(O)O)c(C)c(N(O)=O)cc(N(O)=O)c1"
+
+# ╔═╡ da08d62f-440a-4545-be16-642aa9df3f91
+	G₁,G₂ = MetaGraph.(smilestomol.([G₁ₛₘᵢₗₑ,G₂ₛₘᵢₗₑ]))
+
 # ╔═╡ 7589593c-25a5-4ede-bb26-5a8566c14b93
 viz_graph(G₁)
 
@@ -293,6 +292,9 @@ DPG = ProductGraph{Direct}(G₁,G₂)
 
 # ╔═╡ 1d45477a-1dd0-4fed-a5db-018e41a4aede
 viz_graph(DPG)
+
+# ╔═╡ 3eaabec1-7c5e-4f74-a7ca-86a0b0485c44
+2:4
 
 # ╔═╡ 452cb8bc-9590-4274-9a50-b2f9df80d1ba
 md"""
@@ -359,7 +361,7 @@ function CombinationsWithV(v,k,graph)
 end
 
 # ╔═╡ 458b0257-5fb1-45fb-a6a3-e8b0c08f7f41
-function ConSubG(k,graph)
+function ConSubG(k::Int,graph)::Vector{Vector{Int}}
 	G = deepcopy(graph)
 	for v in vertices(G)
 		set_prop!(G, v, :visited, false)
@@ -416,10 +418,11 @@ function connected_graphlet_isomorphism(G₁,G₂; n=2:4)
 end
 
 # ╔═╡ 98d1f7fa-6193-4751-b664-1d2bae161f4b
-@btime begin
-	K₂ = connected_graphlet_isomorphism(G₂,G₂,n=2:6)
-	K₁ = connected_graphlet_isomorphism(G₁,G₁,n=2:6)
-	K = connected_graphlet_isomorphism(G₁,G₂,n=2:6)
+begin
+	sizerng = 2:6
+	K₂ = connected_graphlet_isomorphism(G₂,G₂,n=sizerng)
+	K₁ = connected_graphlet_isomorphism(G₁,G₁,n=sizerng)
+	K = connected_graphlet_isomorphism(G₁,G₂,n=sizerng)
 	K/(K₂*K₁)^.5
 end
 
@@ -475,7 +478,7 @@ md"""
 """
 
 # ╔═╡ ae706fcf-85e1-4742-bcac-462ec1985593
-@test ⊗ₜ([[3]],[[5]],T_from_algorithm) == [[]]
+@test ⊗ₜ([[3]],[[5]],T_from_algorithm) == Dict()
 
 # ╔═╡ faddc6e3-d7c6-4019-b8f5-27481a41e3e7
 ⊗ₜ([[3]],[[5]],T_from_algorithm)
@@ -484,25 +487,19 @@ md"""
 @test any([i in ⊗ₜ([[2,6,7]],[[]],T_from_algorithm) for i in collect(permutations([2,6,7]))])
 
 # ╔═╡ fa48e421-e69e-4250-a6dd-018d3e22d859
-@test ⊗ₜ([[]],[[2,6,7]],T_from_algorithm) == [[]]
+@test ⊗ₜ([[]],[[2,6,7]],T_from_algorithm) == Dict()
 
 # ╔═╡ c0f58b54-542e-4d55-ae3f-550a903fd4d5
-@test ⊗ₜ([[2]],[[6,7]],T_from_algorithm) == [[]]
+@test ⊗ₜ([[2]],[[6,7]],T_from_algorithm) == Dict()
 
 # ╔═╡ d580f065-abcd-4973-9ee0-74503631e893
-@test ⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm) == [[]]
+@test ⊗ₜ([[2,3],[2,5]],[[6]],T_from_algorithm) == Dict()
 
 # ╔═╡ 506e28af-1c29-4cac-bdb8-94059d157b12
 @test all(i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)) for i in sort.([[2,3,8],[2,5,8]])) && all(i in sort.([[2,3,8],[2,5,8]]) for i in sort.(⊗ₜ([[2,3],[2,5]],[[8]],T_from_algorithm)))
 
-# ╔═╡ 340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
-@test all(i in sort.(ConSubG(4,G)) for i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]])) && all(i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]]) for i in sort.(ConSubG(4,G)))
-
 # ╔═╡ 6c56c473-7fb6-4252-a979-1fb293dfe769
 @test all(i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)) for i in sort.([[6,7,8]])) && all(i in sort.([[6,7,8]]) for i in sort.(⊗ₜ([[6,7]],[[8]],T_from_algorithm)))
-
-# ╔═╡ aeb8c50d-289d-4ea2-85da-64e04cfdaef4
-ConSubG(4,G)
 
 # ╔═╡ fe6ad315-d87a-48ed-966a-8674cb60d37b
 @test all(i in sort.(CombinationsWithV(1,4,G)) for i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]])) && all(i in sort.([[4,2,1,5],[2,3,1,5],[3,4,1,5],[3,2,1,4]]) for i in sort.(CombinationsWithV(1,4,G)))
@@ -514,9 +511,6 @@ md"""
 
 # ╔═╡ b5fec0fc-b99c-47d7-b0ea-79a37c38e072
 @test all(i in sort.(ConSubG(4,G)) for i in sort.([[1,2,3,5],[1,2,4,5],[1,3,4,5],[1,2,3,4]])) && all(i in sort.([[1,2,3,5],[1,2,4,5],[1,3,4,5],[1,2,3,4]]) for i in sort.(ConSubG(4,G)))
-
-# ╔═╡ 27495389-91f4-470d-a12e-dd411b2239e3
-ConSubG(4,G)
 
 # ╔═╡ 74a2a683-0004-4367-bf90-3faa7da64196
 md"""
@@ -543,13 +537,56 @@ begin
 	missed = filter(g -> g ∉ algoritm_output, brute_force)
 end
 
+# ╔═╡ d3b14dd6-fb37-439e-80ae-a651ad5a5ca0
+@test all(i in BF_ConSubG(5,G_test_1) for i in sort(sort.(ConSubG(5,G_test_1)))) && all(i in sort(sort.(ConSubG(5,G_test_1))) for i in BF_ConSubG(5,G_test_1))
+
 # ╔═╡ dd18809b-539c-4cd5-8822-e05ebb5d2ab6
-scaling_test_molecules = ["OCCO","NCC(=O)O","OCC(=O)CO","CN1C=CNC1=S","ON=Cc1ccco1","Cc1cc(O)nc(S)n1","O=C/C=C/c1ccccc1","CC(=O)/C=C/C1=CC=CC=C1","CCCCC1=CC(=O)NC(=S)N1","C1COC(=O)C2=C1C(=CC=C2)C=O","CCN(CC)c1cc(C)nc2ncnn12","Cl.Cc1ccc(cc1)N(CC2=NCCN2)c3ccc(O)cc3","CCOC(=O)N1C=CN(C)C1=S","COc1ccc(cc1)C2=COc3cc(O)ccc3C2=O","CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O","OCC1OC(Oc2cc(O)c3C(=O)CC(Oc3c2)c4ccc(O)cc4)C(O)C(O)C1O","OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O","Cl.Cl.CCOC(CN1CCN(CC(C)C(=O)c2ccccc2)CC1)c3ccccc3","OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO","OC1=C(CC2=C(O)Oc3ccccc3C2=O)C(=O)c4ccccc4O1","CCN(CC)CC(C)(C)COC(=O)C(CO)c1ccccc1.OP(=O)(O)O","CC(=CCCC(=CCCC(=CCCC(=CCO)C)CO)C)C","NC(=N)c1ccc(OCCCCCOc2ccc(cc2)C(=N)N)cc1.OCCS(=O)(=O)O.OCCS(=O)(=O)O","CCC(C)(O)C(=O)OC1C2C(C)C(O)C3(O)OCC24C(CC5C(=CC(O)C(O)C5(C)C34)C)OC1=O"]#,"CC=C1/CC(C)C(C)(O)C(=O)OCC2=CCN3CCC(OC1=O)C23","CC(=C)C1[C@H]2C[C@@]3(C)[C@](O)([C@@H]4O[C@@H]4[C@@]35CO5)[C@@H]1C(=O)O2"]
+scaling_test_molecules = ["OCCO","NCC(=O)O"]#,"OCC(=O)CO","CN1C=CNC1=S","ON=Cc1ccco1","Cc1cc(O)nc(S)n1","O=C/C=C/c1ccccc1","CC(=O)/C=C/C1=CC=CC=C1","CCCCC1=CC(=O)NC(=S)N1","C1COC(=O)C2=C1C(=CC=C2)C=O","CCN(CC)c1cc(C)nc2ncnn12","Cl.Cc1ccc(cc1)N(CC2=NCCN2)c3ccc(O)cc3","CCOC(=O)N1C=CN(C)C1=S","COc1ccc(cc1)C2=COc3cc(O)ccc3C2=O","CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O","OCC1OC(Oc2cc(O)c3C(=O)CC(Oc3c2)c4ccc(O)cc4)C(O)C(O)C1O","OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O","Cl.Cl.CCOC(CN1CCN(CC(C)C(=O)c2ccccc2)CC1)c3ccccc3","OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO","OC1=C(CC2=C(O)Oc3ccccc3C2=O)C(=O)c4ccccc4O1","CCN(CC)CC(C)(C)COC(=O)C(CO)c1ccccc1.OP(=O)(O)O","CC(=CCCC(=CCCC(=CCCC(=CCO)C)CO)C)C","NC(=N)c1ccc(OCCCCCOc2ccc(cc2)C(=N)N)cc1.OCCS(=O)(=O)O.OCCS(=O)(=O)O","CCC(C)(O)C(=O)OC1C2C(C)C(O)C3(O)OCC24C(CC5C(=CC(O)C(O)C5(C)C34)C)OC1=O"]#,"CC=C1/CC(C)C(C)(O)C(=O)OCC2=CCN3CCC(OC1=O)C23","CC(=C)C1[C@H]2C[C@@]3(C)[C@](O)([C@@H]4O[C@@H]4[C@@]35CO5)[C@@H]1C(=O)O2"]
 
 # ╔═╡ f59850c4-3e23-4e0f-be42-7c37c30fdf07
 scaling_test_molecules_graphs = MetaGraph.(smilestomol.(scaling_test_molecules))
 
+# ╔═╡ ef91efee-22fd-427e-af7e-2342d8399047
+begin
+	G_smile1 = "OC1=C(CC2=C(O)Oc3ccccc3C2=O)C(=O)c4ccccc4O1"
+	G_smile2 = "OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO"
+	g_a,g_b = MetaGraph.(smilestomol.([G_smile1,G_smile2]))
+	length(vertices(ProductGraph{Modular}(g_a,g_b)))
+	
+end
+
+# ╔═╡ da3e4bd4-11ef-44a0-adc6-7e74691cc145
+gt1 = MetaGraph(smilestomol("OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O"))
+
+# ╔═╡ 54f0f567-8d55-4107-8991-99c37f28edc0
+gt2 = MetaGraph(smilestomol("CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O"))
+
+# ╔═╡ c015d546-cf4d-480d-86f3-c96194ab3e43
+@df k_scaling StatsPlots.scatter(:k, [:k_time_MPG, :k_time_Iso])
+
+# ╔═╡ 3b443273-dbbe-4c40-b34e-820deaa24899
+DownloadButton(sprint(CSV.write, k_scaling),"k scaling")
+
+# ╔═╡ 7d6a5bd3-a64c-4370-a894-0c86f534f841
+@df node_scaling StatsPlots.scatter(:nodes_in_MPG, [:time_to_compute_MPG, :time_to_compute_Iso])
+
+# ╔═╡ fd7fce19-00bd-4dbc-a1fb-7b9e1bd3dcec
+DownloadButton(sprint(CSV.write, node_scaling),"node scaling")
+
+# ╔═╡ a3b01e16-7df3-4a9b-8652-af4e9c44e235
+node_scaling = CSV.read("C:\\Users\\dcase\\Downloads\\node scaling", DataFrame)
+
+# ╔═╡ cbfc235b-0093-47fa-baed-34546fa14e41
+# ╠═╡ disabled = true
+#=╠═╡
+k_scaling = DataFrame(k = collect(2:9),
+		k_time_MPG = [@elapsed connected_graphlet2(gt1,gt2,n=g) for g ∈ 2:9],
+		k_time_Iso = [@elapsed connected_graphlet_isomorphism(gt1,gt2,n=g) for g ∈ 2:9])
+  ╠═╡ =#
+
 # ╔═╡ 04c03530-6584-4d98-a447-6ff50335b178
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	vector = vec([[ProductGraph{Modular}(G₁,G₂),G₁,G₂] for G₂ in scaling_test_molecules_graphs, G₁ in scaling_test_molecules_graphs])
 	G1s_G2_s = [vector[n][2:3] for n in 1:length(vector)]
@@ -570,40 +607,10 @@ begin
 					for (G1,G2) ∈ G1s_G2_s])
 	
 end
+  ╠═╡ =#
 
-# ╔═╡ 6bcf6010-4ea7-4b4e-88cb-071bca926a18
-G1s_G2_s[171]
-
-# ╔═╡ ef91efee-22fd-427e-af7e-2342d8399047
-begin
-	G_smile1 = "CCC(C)(O)C(=O)OC1C2C(C)C(O)C3(O)OCC24C(CC5C(=CC(O)C(O)C5(C)C34)C)OC1=O"
-	G_smile2 = "OCCN(CCO)c1nc(N2CCCCC2)c3nc(nc(N4CCCCC4)c3n1)N(CCO)CCO"
-	g_a,g_b = MetaGraph.(smilestomol.([G_smile1,G_smile2]))
-	length(vertices(ProductGraph{Modular}(g_a,g_b)))
-end
-
-# ╔═╡ 7d6a5bd3-a64c-4370-a894-0c86f534f841
-@df node_scaling StatsPlots.scatter(:nodes_in_MPG, [:time_to_compute_MPG, :time_to_compute_Iso])
-
-# ╔═╡ da3e4bd4-11ef-44a0-adc6-7e74691cc145
-gt1 = MetaGraph(smilestomol("OCC1OC(OC(=O)c2cc(O)c(O)c(O)c2)C(O)C(O)C1O"))
-
-# ╔═╡ 54f0f567-8d55-4107-8991-99c37f28edc0
-gt2 = MetaGraph(smilestomol("CC(C)C1(CC(=C)Br)C(=O)NC(=O)N(C)C1=O"))
-
-# ╔═╡ cbfc235b-0093-47fa-baed-34546fa14e41
-k_scaling = DataFrame(k = collect(2:8),
-		k_time_MPG = [@elapsed connected_graphlet2(gt1,gt2,n=g) for g ∈ 2:8],
-		k_time_Iso = [@elapsed connected_graphlet_isomorphism(gt1,gt2,n=g) for g ∈ 2:8])
-
-# ╔═╡ c015d546-cf4d-480d-86f3-c96194ab3e43
-@df k_scaling StatsPlots.scatter(:k, [:k_time_MPG, :k_time_Iso])
-
-# ╔═╡ fd7fce19-00bd-4dbc-a1fb-7b9e1bd3dcec
-DownloadButton(sprint(CSV.write, node_scaling),"node scaling")
-
-# ╔═╡ 3b443273-dbbe-4c40-b34e-820deaa24899
-DownloadButton(sprint(CSV.write, k_scaling),"k scaling")
+# ╔═╡ a91cf91f-7418-4cee-80b7-52b119ecbd32
+k_scaling = CSV.read("C:\\Users\\dcase\\Downloads\\k_scaling", DataFrame)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -648,7 +655,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "bff0856c1d0a6090b6027490c9f507a556a6e372"
+project_hash = "40e32c0a72ed98519f04f0bed1a685c9470a657f"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -2523,7 +2530,7 @@ version = "1.4.1+0"
 # ╠═9dc268b8-85e6-4f30-a9c8-32c7e307a85f
 # ╠═97b3722b-bdba-462b-9889-dfc8b9e9953f
 # ╠═533a49e6-5074-40b6-98dd-e0149d061ee2
-# ╠═c3b46798-3cef-418d-bca8-c6fa884bd6b2
+# ╠═c233eb39-55eb-4663-88ef-9b432ed88a2a
 # ╠═a409df2f-11f9-4e7a-bed4-f23084c51d3c
 # ╠═4e3ea7d0-e563-4721-8ca2-fe09883a3449
 # ╠═1b7e37a6-557f-491e-a5b7-d1b032aa9cb9
@@ -2549,6 +2556,7 @@ version = "1.4.1+0"
 # ╠═5fb971e6-0a58-49b2-b548-61428a0dd718
 # ╠═d2d43ed6-daab-44d8-88c6-0a57df48f6a8
 # ╠═e8c72c50-7d11-4b0a-99d2-a46bf652f41c
+# ╠═3eaabec1-7c5e-4f74-a7ca-86a0b0485c44
 # ╟─452cb8bc-9590-4274-9a50-b2f9df80d1ba
 # ╟─794615f1-9fe5-42f9-bc75-5420beddd76a
 # ╠═78ba4241-08d5-44a7-b20f-457b02421c11
@@ -2567,22 +2575,19 @@ version = "1.4.1+0"
 # ╠═c0f58b54-542e-4d55-ae3f-550a903fd4d5
 # ╠═d580f065-abcd-4973-9ee0-74503631e893
 # ╠═506e28af-1c29-4cac-bdb8-94059d157b12
-# ╠═340c3cfc-2c9c-4cd1-96c4-bd386aa109f5
 # ╠═6c56c473-7fb6-4252-a979-1fb293dfe769
-# ╠═aeb8c50d-289d-4ea2-85da-64e04cfdaef4
 # ╠═fe6ad315-d87a-48ed-966a-8674cb60d37b
 # ╠═0311c9f7-17e3-48f0-82ca-ced37b37ac3b
 # ╠═b5fec0fc-b99c-47d7-b0ea-79a37c38e072
-# ╠═27495389-91f4-470d-a12e-dd411b2239e3
 # ╠═74a2a683-0004-4367-bf90-3faa7da64196
 # ╠═87a8bb19-f5a4-43f6-a3dd-6250d2203e5f
 # ╠═8c171201-562c-4f7b-97de-edf1e0748562
 # ╟─5c35dbd8-8b2a-46a3-bb02-b6136c129d01
 # ╠═a5a60155-45c4-4e92-8da7-9025d6ed5722
+# ╠═d3b14dd6-fb37-439e-80ae-a651ad5a5ca0
 # ╠═dd18809b-539c-4cd5-8822-e05ebb5d2ab6
 # ╠═f59850c4-3e23-4e0f-be42-7c37c30fdf07
 # ╠═04c03530-6584-4d98-a447-6ff50335b178
-# ╠═6bcf6010-4ea7-4b4e-88cb-071bca926a18
 # ╠═ef91efee-22fd-427e-af7e-2342d8399047
 # ╠═7d6a5bd3-a64c-4370-a894-0c86f534f841
 # ╠═da3e4bd4-11ef-44a0-adc6-7e74691cc145
@@ -2592,5 +2597,7 @@ version = "1.4.1+0"
 # ╠═0aa60dd3-e2cb-465e-89e7-dd117dfb231d
 # ╠═fd7fce19-00bd-4dbc-a1fb-7b9e1bd3dcec
 # ╠═3b443273-dbbe-4c40-b34e-820deaa24899
+# ╠═a91cf91f-7418-4cee-80b7-52b119ecbd32
+# ╠═a3b01e16-7df3-4a9b-8652-af4e9c44e235
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
