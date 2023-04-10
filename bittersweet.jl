@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.22
+# v0.19.23
 
 using Markdown
 using InteractiveUtils
@@ -10,10 +10,13 @@ begin
 	using BenchmarkTools, PlutoTest, DataFrames, StatsPlots
 	using CairoMakie, GraphMakie
 	using PlutoUI
-	using ProfileCanvas
+	using ProfileCanvas, Plots
 	using MolecularGraph, MolecularGraphKernels, CSV
 	TableOfContents(title="Bittersweet experiments")
 end
+
+# ╔═╡ 8c61ba51-6914-43de-a078-30c6753ac972
+using LinearAlgebra
 
 # ╔═╡ e0369420-53b5-4b46-9f1a-a9996f5dd146
 md"""
@@ -27,7 +30,7 @@ data = download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/maste
 begin
 	test_set = CSV.read(data, DataFrame)
 	size_max = 20
-	size_min = 0
+	size_min = 4
 	errored_smiles = []
 	df_new = DataFrame()
 	allowed_atoms = ['C','O','N','c','S','B','P','F','o','I','K']
@@ -48,15 +51,134 @@ end
 # ╔═╡ c5e4db9f-f011-435a-9c96-121f1b527a67
 errored_smiles
 
-# ╔═╡ a0b53daa-6bf1-4c7a-9535-6bd7ece40ad1
-df_new
-
 # ╔═╡ 99373b35-0455-4e42-b6ab-2c2f4a35b684
-g = MetaGraph(MolecularGraph.removehydrogens(smilestomol("OC[C@H](O)[C@@H](O)[C@H](O)[C@H](O)[14CH2]O")))
+Graph_vector = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ df_new[600:1200,5]]
 
 
-# ╔═╡ 721373e3-600c-4678-a980-621425c6183b
-viz_graph(g)
+# ╔═╡ 37ce6eae-a293-409e-af38-55152e336930
+df_new[538+599,:]
+
+# ╔═╡ cc66c4aa-6ec2-487c-a3da-9b981a1e7128
+a = gram_matrix(random_walk, Graph_vector; l = 4, normalize = true);
+
+# ╔═╡ 51395874-758a-4118-a0dd-a0ce023ced3c
+b = gram_matrix(connected_graphlet, Graph_vector; n = 2:4, normalize = true);
+
+# ╔═╡ 9302ec98-c6f2-47e1-93a1-b55c3caaff5f
+begin
+	fig = Figure()
+	
+	ax1 = Axis(fig[1, 1], title = "Random Walk l=4")
+	CairoMakie.heatmap!(a)
+	ax1.aspect = DataAspect()
+	ax1.yreversed = true
+	ax1.xaxisposition = :top
+	
+	ax2 = Axis(fig[1, 2], title = "All-connected Graphlet n=2:4")
+	CairoMakie.heatmap!(b)
+	ax2.aspect = DataAspect()
+	ax2.yreversed = true
+	ax2.xaxisposition = :top
+
+	ax3 = Axis(fig[2, 1])
+	hist!(a[:])
+
+	ax4 = Axis(fig[2, 2])
+	hist!(b[:])
+	fig
+end
+
+# ╔═╡ abc86cd3-3027-41cd-8d92-9a79eb54736e
+begin
+	for i ∈ eachindex(b[1,:])
+		for j in eachindex(b[:,1])
+			if isnan(b[i,j])
+				@show [i,j]
+			end
+			if !isreal(b[i,j])
+				@show [i,j]
+			end
+		end
+	end
+end
+
+# ╔═╡ 5e24b7d0-3c3f-4197-aaeb-712a8b4cb545
+b[1,:].==0
+
+# ╔═╡ 01d6d00b-1fc3-42d8-afcb-6535e8bbe90d
+b[:,538]
+
+# ╔═╡ 493d417d-96bd-4058-b618-ffd161dbaf18
+begin
+	L_b = zeros(601,601)
+	for i ∈ eachindex(b[1,:])
+		for j in eachindex(b[:,1])
+			if i==j
+				L_b[i,j] = sum(b[i,:])
+			else
+				L_b[i,j] = -1 * b[i,j]
+			end
+		end
+	end
+	L_b = Symmetric(L_b)
+end
+
+# ╔═╡ d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
+eigvals(L_b)
+
+# ╔═╡ 52d0bcb4-0bc6-4d76-8363-93786352cb33
+any(eigvals(L_b).==0)
+
+# ╔═╡ 903bc075-a222-40f7-a20e-7b05b9a33a4b
+eigvecs(L_b)[:,1]
+
+# ╔═╡ 2541a017-78f3-47dc-bab2-f00eaf1c7371
+begin
+	x1 = eigvecs(L_b)[:,3]
+	x2 = eigvecs(L_b)[:,5]
+end
+
+# ╔═╡ d3a1b975-beda-466a-8b02-3566b1130404
+
+
+# ╔═╡ 525fb680-7381-47a5-89ce-adcac2229f42
+[37 565;
+75 563;
+67 590;
+40 117;
+]
+
+# ╔═╡ f8516339-3e69-4c33-9d64-f755e4e5aea7
+function Colors(b,vec,df)
+	return_m = Array{Any}(undef, length(vec),2)
+	embeddings = b*vec
+	for i ∈ eachindex(embeddings)
+		if df[i+600,2] == "Tasteless"
+			return_m[i,1] = embeddings[i]
+			return_m[i,2] = "red"
+		elseif df[i+600,2] == "Sweet"
+			return_m[i,1] = embeddings[i]
+			return_m[i,2] = "black"
+		else
+			return_m[i,1] = embeddings[i]
+			return_m[i,2] = "blue"
+		end
+	end
+	return return_m
+end
+
+# ╔═╡ 63d4bc1d-b454-4a95-b93d-aaeedb398686
+begin
+	Plots.scatter(Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1], color = Colors(b,x1,df_new)[:,2], ms=2, ma=0.5)
+	Plots.xlabel!("x67")
+	Plots.ylabel!("x590")
+end
+
+# ╔═╡ 0af1c66d-0584-4807-a902-a70f02a9bde2
+[Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1]]
+
+# ╔═╡ 2d5c0ce9-9674-4874-8128-9496857cd062
+Colors(b,x2,df_new)[:,1]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -66,8 +188,10 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
@@ -80,7 +204,8 @@ CairoMakie = "~0.10.4"
 DataFrames = "~1.5.0"
 GraphMakie = "~0.5.3"
 MolecularGraph = "~0.13.0"
-MolecularGraphKernels = "~0.8.6"
+MolecularGraphKernels = "~0.9.0"
+Plots = "~1.38.9"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.50"
 ProfileCanvas = "~0.1.6"
@@ -93,7 +218,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "ca2a44dba83e67c5a976a82569e8255246ab61ac"
+project_hash = "d82efb171e51903a342bca5ee2bd43b1fef0435a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -278,6 +403,11 @@ deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.10"
+
+[[deps.Combinatorics]]
+git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
+uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+version = "1.0.2"
 
 [[deps.Compat]]
 deps = ["Dates", "LinearAlgebra", "UUIDs"]
@@ -971,6 +1101,12 @@ git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 version = "0.3.2"
 
+[[deps.Memoization]]
+deps = ["MacroTools"]
+git-tree-sha1 = "2f6913923a0cb8046134f5cbf8b4d7ba3c856a1d"
+uuid = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
+version = "0.2.0"
+
 [[deps.MetaGraphs]]
 deps = ["Graphs", "JLD2", "Random"]
 git-tree-sha1 = "1130dbe1d5276cb656f6e1094ce97466ed700e5a"
@@ -999,10 +1135,10 @@ uuid = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 version = "0.13.0"
 
 [[deps.MolecularGraphKernels]]
-deps = ["Cairo", "Colors", "Compose", "Distributed", "GraphPlot", "Graphs", "JLD2", "MetaGraphs", "MolecularGraph", "PeriodicTable", "PrecompileSignatures", "ProgressMeter", "RDKitMinimalLib", "SharedArrays"]
-git-tree-sha1 = "c466b8265e13b7e9f9498b5ef7f98c0cfe6422c7"
+deps = ["Cairo", "Colors", "Combinatorics", "Compose", "Distributed", "GraphPlot", "Graphs", "JLD2", "Memoization", "MetaGraphs", "MolecularGraph", "PeriodicTable", "PrecompileSignatures", "ProgressMeter", "RDKitMinimalLib", "SharedArrays"]
+git-tree-sha1 = "0dd82aad3a567451096ac0fc239b2ce4da4759f6"
 uuid = "bf3818bd-b6bb-4954-8baa-32c32282e633"
-version = "0.8.6"
+version = "0.9.0"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -1833,9 +1969,9 @@ version = "1.2.12+3"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "c6edfe154ad7b313c01aceca188c05c835c67360"
+git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
-version = "1.5.4+0"
+version = "1.5.5+0"
 
 [[deps.boost_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -1943,8 +2079,25 @@ version = "1.4.1+0"
 # ╟─abcef5df-b311-4539-b73b-370570a2f248
 # ╠═a7b2af0a-ded1-42e7-82ce-2a9ea6cbd441
 # ╠═c5e4db9f-f011-435a-9c96-121f1b527a67
-# ╠═a0b53daa-6bf1-4c7a-9535-6bd7ece40ad1
 # ╠═99373b35-0455-4e42-b6ab-2c2f4a35b684
-# ╠═721373e3-600c-4678-a980-621425c6183b
+# ╠═37ce6eae-a293-409e-af38-55152e336930
+# ╠═cc66c4aa-6ec2-487c-a3da-9b981a1e7128
+# ╠═51395874-758a-4118-a0dd-a0ce023ced3c
+# ╠═9302ec98-c6f2-47e1-93a1-b55c3caaff5f
+# ╠═abc86cd3-3027-41cd-8d92-9a79eb54736e
+# ╠═5e24b7d0-3c3f-4197-aaeb-712a8b4cb545
+# ╠═01d6d00b-1fc3-42d8-afcb-6535e8bbe90d
+# ╠═493d417d-96bd-4058-b618-ffd161dbaf18
+# ╠═d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
+# ╠═8c61ba51-6914-43de-a078-30c6753ac972
+# ╠═52d0bcb4-0bc6-4d76-8363-93786352cb33
+# ╠═903bc075-a222-40f7-a20e-7b05b9a33a4b
+# ╠═2541a017-78f3-47dc-bab2-f00eaf1c7371
+# ╠═d3a1b975-beda-466a-8b02-3566b1130404
+# ╠═525fb680-7381-47a5-89ce-adcac2229f42
+# ╠═63d4bc1d-b454-4a95-b93d-aaeedb398686
+# ╠═0af1c66d-0584-4807-a902-a70f02a9bde2
+# ╠═2d5c0ce9-9674-4874-8128-9496857cd062
+# ╠═f8516339-3e69-4c33-9d64-f755e4e5aea7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
