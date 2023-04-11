@@ -12,6 +12,7 @@ begin
 	using PlutoUI
 	using ProfileCanvas, Plots
 	using MolecularGraph, MolecularGraphKernels, CSV
+	using Tables, Downloads, JLD2, ScikitLearn
 	TableOfContents(title="Bittersweet experiments")
 end
 
@@ -24,7 +25,7 @@ md"""
 """
 
 # ╔═╡ abcef5df-b311-4539-b73b-370570a2f248
-data = download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/master/data/bitter-train.tsv")
+data = Base.download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/master/data/bitter-train.tsv")
 
 # ╔═╡ a7b2af0a-ded1-42e7-82ce-2a9ea6cbd441
 begin
@@ -52,17 +53,29 @@ end
 errored_smiles
 
 # ╔═╡ 99373b35-0455-4e42-b6ab-2c2f4a35b684
-Graph_vector = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ df_new[600:1200,5]]
+Graph_vector = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ df_new[:,5]]
 
 
 # ╔═╡ 37ce6eae-a293-409e-af38-55152e336930
-df_new[538+599,:]
+df_new[1137,:]
+
+# ╔═╡ 992f3ff2-463e-4d63-a588-6c19818f7b39
+md"""
+## kernel gram matrix
+"""
+
+# ╔═╡ b6df0b4f-938f-478e-acf6-a48b88a85515
+begin
+	@load "C:\\Users\\dcase\\GraphletKernel\\gram_matrix.jld2" b
+	@load "C:\\Users\\dcase\\GraphletKernel\\rwalk_bsweet.jld2" a
+end
+	
 
 # ╔═╡ cc66c4aa-6ec2-487c-a3da-9b981a1e7128
-a = gram_matrix(random_walk, Graph_vector; l = 4, normalize = true);
+#a = gram_matrix(random_walk, Graph_vector; l = 4, normalize = true);
 
 # ╔═╡ 51395874-758a-4118-a0dd-a0ce023ced3c
-b = gram_matrix(connected_graphlet, Graph_vector; n = 2:4, normalize = true);
+#b = gram_matrix(connected_graphlet, Graph_vector; n = 2:5, normalize = true);
 
 # ╔═╡ 9302ec98-c6f2-47e1-93a1-b55c3caaff5f
 begin
@@ -74,7 +87,7 @@ begin
 	ax1.yreversed = true
 	ax1.xaxisposition = :top
 	
-	ax2 = Axis(fig[1, 2], title = "All-connected Graphlet n=2:4")
+	ax2 = Axis(fig[1, 2], title = "All-connected Graphlet n=2:5")
 	CairoMakie.heatmap!(b)
 	ax2.aspect = DataAspect()
 	ax2.yreversed = true
@@ -102,15 +115,14 @@ begin
 	end
 end
 
-# ╔═╡ 5e24b7d0-3c3f-4197-aaeb-712a8b4cb545
-b[1,:].==0
-
-# ╔═╡ 01d6d00b-1fc3-42d8-afcb-6535e8bbe90d
-b[:,538]
+# ╔═╡ 939d7fb8-fb7b-4778-a543-f36d434e6786
+md"""
+## Laplician embedding
+"""
 
 # ╔═╡ 493d417d-96bd-4058-b618-ffd161dbaf18
 begin
-	L_b = zeros(601,601)
+	L_b = zeros(size(b))
 	for i ∈ eachindex(b[1,:])
 		for j in eachindex(b[:,1])
 			if i==j
@@ -123,23 +135,32 @@ begin
 	L_b = Symmetric(L_b)
 end
 
+# ╔═╡ 9ae2d907-f98d-46ce-8886-744bba475dbb
+begin
+	L_a = zeros(size(a))
+	for i ∈ eachindex(a[1,:])
+		for j in eachindex(a[:,1])
+			if i==j
+				L_a[i,j] = sum(a[i,:])
+			else
+				L_a[i,j] = -1 * a[i,j]
+			end
+		end
+	end
+	L_a = Symmetric(L_a)
+end
+
 # ╔═╡ d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
 eigvals(L_b)
 
-# ╔═╡ 52d0bcb4-0bc6-4d76-8363-93786352cb33
-any(eigvals(L_b).==0)
-
-# ╔═╡ 903bc075-a222-40f7-a20e-7b05b9a33a4b
-eigvecs(L_b)[:,1]
+# ╔═╡ 2d7686ac-216d-4646-b4d8-9927f02af107
+eigvals(L_a)
 
 # ╔═╡ 2541a017-78f3-47dc-bab2-f00eaf1c7371
 begin
 	x1 = eigvecs(L_b)[:,3]
 	x2 = eigvecs(L_b)[:,5]
 end
-
-# ╔═╡ d3a1b975-beda-466a-8b02-3566b1130404
-
 
 # ╔═╡ 525fb680-7381-47a5-89ce-adcac2229f42
 [37 565;
@@ -148,17 +169,22 @@ end
 40 117;
 ]
 
+# ╔═╡ 5d14291b-9b50-4ecd-a3f5-1273b1c8867e
+md"""
+### Clustering plot using a projection on to two eigenvectors of the Laplician matrix
+"""
+
 # ╔═╡ f8516339-3e69-4c33-9d64-f755e4e5aea7
 function Colors(b,vec,df)
 	return_m = Array{Any}(undef, length(vec),2)
 	embeddings = b*vec
 	for i ∈ eachindex(embeddings)
-		if df[i+600,2] == "Tasteless"
+		if df[i,2] == "Tasteless"
 			return_m[i,1] = embeddings[i]
 			return_m[i,2] = "red"
-		elseif df[i+600,2] == "Sweet"
+		elseif df[i,2] == "Sweet"
 			return_m[i,1] = embeddings[i]
-			return_m[i,2] = "black"
+			return_m[i,2] = "green"
 		else
 			return_m[i,1] = embeddings[i]
 			return_m[i,2] = "blue"
@@ -170,15 +196,38 @@ end
 # ╔═╡ 63d4bc1d-b454-4a95-b93d-aaeedb398686
 begin
 	Plots.scatter(Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1], color = Colors(b,x1,df_new)[:,2], ms=2, ma=0.5)
-	Plots.xlabel!("x67")
-	Plots.ylabel!("x590")
+	Plots.xlabel!("x3")
+	Plots.ylabel!("x5")
 end
 
 # ╔═╡ 0af1c66d-0584-4807-a902-a70f02a9bde2
 [Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1]]
 
-# ╔═╡ 2d5c0ce9-9674-4874-8128-9496857cd062
-Colors(b,x2,df_new)[:,1]
+# ╔═╡ c95c43dd-b873-4b9e-90f7-5ca677ad8715
+@sk_import manifold: SpectralEmbedding;
+
+# ╔═╡ efa9cfca-1327-4e20-bada-b89764402fa2
+bc = b[1:end .!= 1137, 1:end .!= 1137]
+
+# ╔═╡ 15ce5a50-1611-41fd-bf64-32868d383ce2
+begin
+	spe = SpectralEmbedding(n_components = 5, affinity = "precomputed").fit_transform(bc)
+	x_p_1= spe[:,1]
+	x_p_2= spe[:,2]
+	x_p_3= spe[:,3]
+	x_p_4= spe[:,4]
+	x_p_5= spe[:,5]
+end
+
+# ╔═╡ abca82bb-d94a-40e9-a7fd-9d3170dec601
+df_c = df_new[!, 1:end .!= 1137]
+
+# ╔═╡ 90e7e5ac-07da-48ba-ae46-92e848a023d7
+begin
+	Plots.scatter(Colors(bc,x_p_1,df_c)[:,1],Colors(bc,x_p_2,df_c)[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+	Plots.xlabel!("x1")
+	Plots.ylabel!("x2")
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -187,7 +236,9 @@ BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
@@ -195,7 +246,9 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
+ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 
 [compat]
 BenchmarkTools = "~1.3.2"
@@ -203,13 +256,16 @@ CSV = "~0.10.9"
 CairoMakie = "~0.10.4"
 DataFrames = "~1.5.0"
 GraphMakie = "~0.5.3"
+JLD2 = "~0.4.31"
 MolecularGraph = "~0.13.0"
 MolecularGraphKernels = "~0.9.0"
 Plots = "~1.38.9"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.50"
 ProfileCanvas = "~0.1.6"
+ScikitLearn = "~0.7.0"
 StatsPlots = "~0.15.4"
+Tables = "~1.10.1"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -218,7 +274,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "d82efb171e51903a342bca5ee2bd43b1fef0435a"
+project_hash = "c8ff1fb47708d9cd34e4364e943c25812ea3432a"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -425,6 +481,12 @@ deps = ["Base64", "Colors", "DataStructures", "Dates", "IterTools", "JSON", "Lin
 git-tree-sha1 = "bf6570a34c850f99407b494757f5d7ad233a7257"
 uuid = "a81c6b42-2e10-5240-aca2-a61377ecd94b"
 version = "0.9.5"
+
+[[deps.Conda]]
+deps = ["Downloads", "JSON", "VersionParsing"]
+git-tree-sha1 = "e32a90da027ca45d84678b826fffd3110bb3fc90"
+uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+version = "1.8.0"
 
 [[deps.ConstructionBase]]
 deps = ["LinearAlgebra"]
@@ -1292,6 +1354,12 @@ git-tree-sha1 = "84a314e3926ba9ec66ac097e3635e270986b0f10"
 uuid = "36c8627f-9965-5494-a995-c6b170f724f3"
 version = "1.50.9+0"
 
+[[deps.Parameters]]
+deps = ["OrderedCollections", "UnPack"]
+git-tree-sha1 = "34c0e9ad262e5f7fc75b10a9952ca7692cfc5fbe"
+uuid = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+version = "0.12.3"
+
 [[deps.Parsers]]
 deps = ["Dates", "SnoopPrecompile"]
 git-tree-sha1 = "478ac6c952fddd4399e71d4779797c538d0ff2bf"
@@ -1414,6 +1482,12 @@ git-tree-sha1 = "8cf3b5cea994cfa9f238e19c3946a39cf051896c"
 uuid = "f8a19df8-e894-5f55-a973-672c1158cbca"
 version = "0.1.2"
 
+[[deps.PyCall]]
+deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
+git-tree-sha1 = "62f417f6ad727987c755549e9cd88c46578da562"
+uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+version = "1.95.1"
+
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
 git-tree-sha1 = "18e8f4d1426e965c7b532ddd260599e1510d26ce"
@@ -1531,6 +1605,18 @@ deps = ["Libdl", "SIMD"]
 git-tree-sha1 = "2436b15f376005e8790e318329560dcc67188e84"
 uuid = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
 version = "0.3.3"
+
+[[deps.ScikitLearn]]
+deps = ["Compat", "Conda", "DataFrames", "Distributed", "IterTools", "LinearAlgebra", "MacroTools", "Parameters", "Printf", "PyCall", "Random", "ScikitLearnBase", "SparseArrays", "StatsBase", "VersionParsing"]
+git-tree-sha1 = "3df098033358431591827bb86cada0bed744105a"
+uuid = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
+version = "0.7.0"
+
+[[deps.ScikitLearnBase]]
+deps = ["LinearAlgebra", "Random", "Statistics"]
+git-tree-sha1 = "7877e55c1523a4b336b433da39c8e8c08d2f221f"
+uuid = "6e75b9c4-186b-50bd-896f-2d2496a4843e"
+version = "0.5.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -1757,6 +1843,11 @@ version = "1.4.2"
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
+[[deps.UnPack]]
+git-tree-sha1 = "387c1f73762231e86e0c9c5443ce3b4a0a9a0c2b"
+uuid = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
+version = "1.0.2"
+
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
@@ -1782,6 +1873,11 @@ version = "0.4.4"
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
 uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
+
+[[deps.VersionParsing]]
+git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
+uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
+version = "1.3.0"
 
 [[deps.Wayland_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
@@ -2081,23 +2177,28 @@ version = "1.4.1+0"
 # ╠═c5e4db9f-f011-435a-9c96-121f1b527a67
 # ╠═99373b35-0455-4e42-b6ab-2c2f4a35b684
 # ╠═37ce6eae-a293-409e-af38-55152e336930
+# ╟─992f3ff2-463e-4d63-a588-6c19818f7b39
+# ╠═b6df0b4f-938f-478e-acf6-a48b88a85515
 # ╠═cc66c4aa-6ec2-487c-a3da-9b981a1e7128
 # ╠═51395874-758a-4118-a0dd-a0ce023ced3c
-# ╠═9302ec98-c6f2-47e1-93a1-b55c3caaff5f
+# ╟─9302ec98-c6f2-47e1-93a1-b55c3caaff5f
 # ╠═abc86cd3-3027-41cd-8d92-9a79eb54736e
-# ╠═5e24b7d0-3c3f-4197-aaeb-712a8b4cb545
-# ╠═01d6d00b-1fc3-42d8-afcb-6535e8bbe90d
+# ╟─939d7fb8-fb7b-4778-a543-f36d434e6786
 # ╠═493d417d-96bd-4058-b618-ffd161dbaf18
+# ╠═9ae2d907-f98d-46ce-8886-744bba475dbb
 # ╠═d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
+# ╠═2d7686ac-216d-4646-b4d8-9927f02af107
 # ╠═8c61ba51-6914-43de-a078-30c6753ac972
-# ╠═52d0bcb4-0bc6-4d76-8363-93786352cb33
-# ╠═903bc075-a222-40f7-a20e-7b05b9a33a4b
 # ╠═2541a017-78f3-47dc-bab2-f00eaf1c7371
-# ╠═d3a1b975-beda-466a-8b02-3566b1130404
 # ╠═525fb680-7381-47a5-89ce-adcac2229f42
+# ╠═5d14291b-9b50-4ecd-a3f5-1273b1c8867e
 # ╠═63d4bc1d-b454-4a95-b93d-aaeedb398686
 # ╠═0af1c66d-0584-4807-a902-a70f02a9bde2
-# ╠═2d5c0ce9-9674-4874-8128-9496857cd062
 # ╠═f8516339-3e69-4c33-9d64-f755e4e5aea7
+# ╠═c95c43dd-b873-4b9e-90f7-5ca677ad8715
+# ╠═efa9cfca-1327-4e20-bada-b89764402fa2
+# ╠═15ce5a50-1611-41fd-bf64-32868d383ce2
+# ╠═abca82bb-d94a-40e9-a7fd-9d3170dec601
+# ╠═90e7e5ac-07da-48ba-ae46-92e848a023d7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
