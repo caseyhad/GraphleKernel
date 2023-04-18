@@ -115,6 +115,9 @@ begin
 	end
 end
 
+# ╔═╡ efa9cfca-1327-4e20-bada-b89764402fa2
+bc = b[1:end .!= 1137, 1:end .!= 1137] ##remove PF6
+
 # ╔═╡ 939d7fb8-fb7b-4778-a543-f36d434e6786
 md"""
 ## Laplician embedding
@@ -122,52 +125,36 @@ md"""
 
 # ╔═╡ 493d417d-96bd-4058-b618-ffd161dbaf18
 begin
-	L_b = zeros(size(b))
-	for i ∈ eachindex(b[1,:])
-		for j in eachindex(b[:,1])
+	L_b = zeros(size(bc))
+	for i ∈ eachindex(bc[1,:])
+		for j in eachindex(bc[:,1])
 			if i==j
-				L_b[i,j] = sum(b[i,:])
+				L_b[i,j] = sum(bc[i,:])
 			else
-				L_b[i,j] = -1 * b[i,j]
+				L_b[i,j] = -1 * bc[i,j]
 			end
 		end
 	end
 	L_b = Symmetric(L_b)
 end
 
-# ╔═╡ 9ae2d907-f98d-46ce-8886-744bba475dbb
+# ╔═╡ 4256ddf3-a213-4c74-8e32-7f16bfa1f346
 begin
-	L_a = zeros(size(a))
-	for i ∈ eachindex(a[1,:])
-		for j in eachindex(a[:,1])
-			if i==j
-				L_a[i,j] = sum(a[i,:])
-			else
-				L_a[i,j] = -1 * a[i,j]
-			end
-		end
+	Degree = zeros(size(bc))
+	for i = 1:size(bc)[1]
+		Degree[i,i] = sum(bc[i,:])
 	end
-	L_a = Symmetric(L_a)
+	Degree
 end
 
-# ╔═╡ d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
-eigvals(L_b)
-
-# ╔═╡ 2d7686ac-216d-4646-b4d8-9927f02af107
-eigvals(L_a)
+# ╔═╡ d02cfcbc-0c7f-4cd6-a5c0-b52c9c883df4
+L_b_rw = Degree^-1*L_b
 
 # ╔═╡ 2541a017-78f3-47dc-bab2-f00eaf1c7371
 begin
-	x1 = eigvecs(L_b)[:,3]
-	x2 = eigvecs(L_b)[:,5]
+	x1 = eigvecs(L_b_rw)[:,2]
+	x2 = eigvecs(L_b_rw)[:,3]
 end
-
-# ╔═╡ 525fb680-7381-47a5-89ce-adcac2229f42
-[37 565;
-75 563;
-67 590;
-40 117;
-]
 
 # ╔═╡ 5d14291b-9b50-4ecd-a3f5-1273b1c8867e
 md"""
@@ -193,21 +180,8 @@ function Colors(b,vec,df)
 	return return_m
 end
 
-# ╔═╡ 63d4bc1d-b454-4a95-b93d-aaeedb398686
-begin
-	Plots.scatter(Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1], color = Colors(b,x1,df_new)[:,2], ms=2, ma=0.5)
-	Plots.xlabel!("x3")
-	Plots.ylabel!("x5")
-end
-
-# ╔═╡ 0af1c66d-0584-4807-a902-a70f02a9bde2
-[Colors(b,x1,df_new)[:,1],Colors(b,x2,df_new)[:,1]]
-
 # ╔═╡ c95c43dd-b873-4b9e-90f7-5ca677ad8715
 @sk_import manifold: SpectralEmbedding;
-
-# ╔═╡ efa9cfca-1327-4e20-bada-b89764402fa2
-bc = b[1:end .!= 1137, 1:end .!= 1137]
 
 # ╔═╡ 15ce5a50-1611-41fd-bf64-32868d383ce2
 begin
@@ -222,12 +196,92 @@ end
 # ╔═╡ abca82bb-d94a-40e9-a7fd-9d3170dec601
 df_c = df_new[!, 1:end .!= 1137]
 
-# ╔═╡ 90e7e5ac-07da-48ba-ae46-92e848a023d7
+# ╔═╡ 63d4bc1d-b454-4a95-b93d-aaeedb398686
 begin
-	Plots.scatter(Colors(bc,x_p_1,df_c)[:,1],Colors(bc,x_p_2,df_c)[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+	Plots.scatter(x1,x2, color = Colors(bc,x1,df_c)[:,2], ms=2, ma=0.5)
+	Plots.xlabel!("x3")
+	Plots.ylabel!("x5")
+end
+
+# ╔═╡ 85500f10-9473-4022-9ef9-e98da115dda5
+begin
+	Plots.scatter(x_p_1,x_p_2, color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
 	Plots.xlabel!("x1")
 	Plots.ylabel!("x2")
 end
+
+# ╔═╡ f06a4f01-9575-42f7-83c7-c9d4b865ab6d
+md"""
+## Diffusion map
+"""
+
+# ╔═╡ f271e3ee-a9a2-48cf-b055-e6db53b8390a
+md"""
+### Gaussian kernel
+"""
+
+# ╔═╡ cbb73ee9-5f2d-412a-b738-afe89ced7a22
+function Gauss_kernel(x::Vector{Float64},y::Vector{Float64}; α = 1)::Float64
+	return exp(-sum((x-y).^2)/α)
+end
+
+# ╔═╡ d22375b3-67b6-4d5b-a386-20144c450933
+md"""
+### Construct gaussian kernel matrix
+"""
+
+# ╔═╡ 933616ac-cc05-442b-b385-1be928a21126
+begin
+	K = zeros(size(bc))
+	for i ∈ eachindex(K[1,:])
+		for j ∈ eachindex(K[:,1])
+			K[i,j] = Gauss_kernel(b[i,:],b[:,j], α = 7000)
+		end
+	end
+end
+
+
+# ╔═╡ ecefa22a-bf21-47ac-86f7-fbf03151bb24
+K
+
+# ╔═╡ 55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
+begin
+	D = zeros(size(K))
+	for i = 1:size(K)[1]
+		D[i,i] = sum(K[i,:])
+	end
+	D
+end
+
+# ╔═╡ 15c66917-d4b6-45cc-a9ad-463de1a3b304
+P = D^-1*K
+
+# ╔═╡ 2cb27135-1c86-4b7c-8082-d02fa83a7161
+Pₜ = P^2
+
+# ╔═╡ e841aea2-ff49-4163-912b-f306bd855cfa
+ψ = real(eigvecs(Pₜ))
+
+# ╔═╡ 7f38c490-6af4-4e62-92ea-ea44b78d01ac
+λ = real(eigvals(Pₜ))
+
+# ╔═╡ ea289244-061a-4812-b0d9-9b5f79530253
+y = [λ[end-5]*ψ[:,end-5] λ[end-1]*ψ[:,end-1]]
+
+# ╔═╡ bde2c9ff-a806-40bd-aae8-141cf8816a6c
+Plots.scatter(y[:,2], -y[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+
+# ╔═╡ 5656ca2e-c407-4db7-9436-977d6f58e61c
+eigen_vectors = SpectralEmbedding(n_components = 1357, affinity = "precomputed").fit_transform(Pₜ)
+
+# ╔═╡ 0114e96d-a1c9-4b7a-bda5-479f02140035
+y₁ = eigen_vectors[:,1]
+
+# ╔═╡ 6ef5b48a-8d7a-4463-9837-df46cc3b6b52
+y₂ = eigen_vectors[:,2]
+
+# ╔═╡ 42585049-03f9-4f56-8f7c-f59de2b453f5
+Plots.scatter(y₁, y₂, color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -274,7 +328,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "c8ff1fb47708d9cd34e4364e943c25812ea3432a"
+project_hash = "3df6667d12315d82b3a6e141aaa6f89ed147672f"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -2177,28 +2231,42 @@ version = "1.4.1+0"
 # ╠═c5e4db9f-f011-435a-9c96-121f1b527a67
 # ╠═99373b35-0455-4e42-b6ab-2c2f4a35b684
 # ╠═37ce6eae-a293-409e-af38-55152e336930
-# ╟─992f3ff2-463e-4d63-a588-6c19818f7b39
+# ╠═992f3ff2-463e-4d63-a588-6c19818f7b39
 # ╠═b6df0b4f-938f-478e-acf6-a48b88a85515
 # ╠═cc66c4aa-6ec2-487c-a3da-9b981a1e7128
 # ╠═51395874-758a-4118-a0dd-a0ce023ced3c
 # ╟─9302ec98-c6f2-47e1-93a1-b55c3caaff5f
 # ╠═abc86cd3-3027-41cd-8d92-9a79eb54736e
+# ╠═efa9cfca-1327-4e20-bada-b89764402fa2
 # ╟─939d7fb8-fb7b-4778-a543-f36d434e6786
 # ╠═493d417d-96bd-4058-b618-ffd161dbaf18
-# ╠═9ae2d907-f98d-46ce-8886-744bba475dbb
-# ╠═d6e1591e-44a0-4bc0-9d08-ec0433e57b0a
-# ╠═2d7686ac-216d-4646-b4d8-9927f02af107
 # ╠═8c61ba51-6914-43de-a078-30c6753ac972
+# ╠═4256ddf3-a213-4c74-8e32-7f16bfa1f346
+# ╠═d02cfcbc-0c7f-4cd6-a5c0-b52c9c883df4
 # ╠═2541a017-78f3-47dc-bab2-f00eaf1c7371
-# ╠═525fb680-7381-47a5-89ce-adcac2229f42
-# ╠═5d14291b-9b50-4ecd-a3f5-1273b1c8867e
+# ╟─5d14291b-9b50-4ecd-a3f5-1273b1c8867e
 # ╠═63d4bc1d-b454-4a95-b93d-aaeedb398686
-# ╠═0af1c66d-0584-4807-a902-a70f02a9bde2
 # ╠═f8516339-3e69-4c33-9d64-f755e4e5aea7
 # ╠═c95c43dd-b873-4b9e-90f7-5ca677ad8715
-# ╠═efa9cfca-1327-4e20-bada-b89764402fa2
 # ╠═15ce5a50-1611-41fd-bf64-32868d383ce2
 # ╠═abca82bb-d94a-40e9-a7fd-9d3170dec601
-# ╠═90e7e5ac-07da-48ba-ae46-92e848a023d7
+# ╠═85500f10-9473-4022-9ef9-e98da115dda5
+# ╟─f06a4f01-9575-42f7-83c7-c9d4b865ab6d
+# ╟─f271e3ee-a9a2-48cf-b055-e6db53b8390a
+# ╠═cbb73ee9-5f2d-412a-b738-afe89ced7a22
+# ╠═d22375b3-67b6-4d5b-a386-20144c450933
+# ╠═933616ac-cc05-442b-b385-1be928a21126
+# ╠═ecefa22a-bf21-47ac-86f7-fbf03151bb24
+# ╠═55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
+# ╠═15c66917-d4b6-45cc-a9ad-463de1a3b304
+# ╠═2cb27135-1c86-4b7c-8082-d02fa83a7161
+# ╠═e841aea2-ff49-4163-912b-f306bd855cfa
+# ╠═7f38c490-6af4-4e62-92ea-ea44b78d01ac
+# ╠═ea289244-061a-4812-b0d9-9b5f79530253
+# ╠═bde2c9ff-a806-40bd-aae8-141cf8816a6c
+# ╠═5656ca2e-c407-4db7-9436-977d6f58e61c
+# ╠═0114e96d-a1c9-4b7a-bda5-479f02140035
+# ╠═6ef5b48a-8d7a-4463-9837-df46cc3b6b52
+# ╠═42585049-03f9-4f56-8f7c-f59de2b453f5
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
