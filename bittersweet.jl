@@ -12,7 +12,7 @@ begin
 	using PlutoUI
 	using ProfileCanvas, Plots
 	using MolecularGraph, MolecularGraphKernels, CSV
-	using Tables, Downloads, JLD2, ScikitLearn
+	using Tables, Downloads, JLD2, ScikitLearn, DiffusionMap
 	TableOfContents(title="Bittersweet experiments")
 end
 
@@ -138,7 +138,7 @@ begin
 	L_b = Symmetric(L_b)
 end
 
-# ╔═╡ 4256ddf3-a213-4c74-8e32-7f16bfa1f346
+# ╔═╡ ffd70ce4-d566-4830-bcbb-671f5168c8fe
 begin
 	Degree = zeros(size(bc))
 	for i = 1:size(bc)[1]
@@ -230,19 +230,40 @@ md"""
 ### Construct gaussian kernel matrix
 """
 
+# ╔═╡ 36fd7860-ba69-4837-ac79-a76f5292b7a6
+bc
+
+# ╔═╡ b40b764b-47d3-4166-934e-2fe9fd66e8e5
+zz = Degree^-1*bc
+
+# ╔═╡ d18455bf-cbaa-4309-82c6-a1dc5afa6b4a
+t = 1
+
+# ╔═╡ cbf6e190-1d70-45c2-8815-357a883e4746
+res = diffusion_map(zz^t,2)
+
+# ╔═╡ 4e0f7f2d-8f5b-4dcc-a315-daa8f1a68296
+res_pca = pca(zz,2)
+
+# ╔═╡ 94e44e50-64e7-4e6a-bcf6-0bb70d3d9ea5
+Plots.scatter(res[:,1], res[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5,  size = (670, 600), lims = [1.05*minimum(union(res[:,1],res[:,2])),1.05*maximum(union(res[:,1],res[:,2]))])
+
+# ╔═╡ 856acbf0-8e76-406f-80fa-51885c2951ab
+Plots.scatter(res_pca[:,1], res_pca[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5, lims = [1.05*minimum(union(res_pca[:,1],res_pca[:,2])),1.05*maximum(union(res_pca[:,1],res_pca[:,2]))], size = (670, 600))
+
+# ╔═╡ 1e936863-d89e-467c-a2ae-7f1f74a388cd
+alpha = 35
+
 # ╔═╡ 933616ac-cc05-442b-b385-1be928a21126
 begin
 	K = zeros(size(bc))
 	for i ∈ eachindex(K[1,:])
 		for j ∈ eachindex(K[:,1])
-			K[i,j] = Gauss_kernel(b[i,:],b[:,j], α = 7000)
+			K[i,j] = Gauss_kernel(bc[i,:],bc[:,j], α = alpha)
 		end
 	end
 end
 
-
-# ╔═╡ ecefa22a-bf21-47ac-86f7-fbf03151bb24
-K
 
 # ╔═╡ 55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
 begin
@@ -254,13 +275,13 @@ begin
 end
 
 # ╔═╡ 15c66917-d4b6-45cc-a9ad-463de1a3b304
-P = D^-1*K
+P = D^-1*K;
 
 # ╔═╡ 2cb27135-1c86-4b7c-8082-d02fa83a7161
-Pₜ = P^2
+Pₜ = P^2;
 
 # ╔═╡ e841aea2-ff49-4163-912b-f306bd855cfa
-ψ = real(eigvecs(Pₜ))
+ψ = real(eigvecs(Pₜ));
 
 # ╔═╡ 7f38c490-6af4-4e62-92ea-ea44b78d01ac
 λ = real(eigvals(Pₜ))
@@ -269,19 +290,28 @@ Pₜ = P^2
 y = [λ[end-5]*ψ[:,end-5] λ[end-1]*ψ[:,end-1]]
 
 # ╔═╡ bde2c9ff-a806-40bd-aae8-141cf8816a6c
-Plots.scatter(y[:,2], -y[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+Plots.scatter(y[:,2], y[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
 
-# ╔═╡ 5656ca2e-c407-4db7-9436-977d6f58e61c
-eigen_vectors = SpectralEmbedding(n_components = 1357, affinity = "precomputed").fit_transform(Pₜ)
+# ╔═╡ c15b1ba8-5ad7-45ea-8c54-fd04a95d9365
+minimum(union(res[:,1],res[:,2]))
 
-# ╔═╡ 0114e96d-a1c9-4b7a-bda5-479f02140035
-y₁ = eigen_vectors[:,1]
+# ╔═╡ cea0b4c4-fcc1-4309-8463-6b9b9919b64e
+minimum([1,2,3,4,5])
 
-# ╔═╡ 6ef5b48a-8d7a-4463-9837-df46cc3b6b52
-y₂ = eigen_vectors[:,2]
+# ╔═╡ 45ac184e-1794-4dcf-b418-cdb3a9d99d94
+Gauss_kernel(bc[:,100],bc[:,325], α = 150)
 
-# ╔═╡ 42585049-03f9-4f56-8f7c-f59de2b453f5
-Plots.scatter(y₁, y₂, color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+# ╔═╡ 590a4c84-ece4-4153-a53b-07462e32acba
+sum((bc[:,100].*bc[:,101]).^5)
+
+# ╔═╡ fa2326d3-ff2e-4eb7-844a-e1576399e9a1
+sum((bc[:,100].-bc[:,325]).^2)^5
+
+# ╔═╡ 74412ec8-2f6f-4a84-ac6f-10bd7efe62fd
+sum((bc[:,100].-bc[:,101]).^2)^5
+
+# ╔═╡ 324fb0fb-4d09-4733-9ef2-f79331d73c7a
+bc[101,325]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -290,6 +320,7 @@ BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DiffusionMap = "809424d5-4f20-4f0f-8853-2ca5e8a82a88"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -309,6 +340,7 @@ BenchmarkTools = "~1.3.2"
 CSV = "~0.10.9"
 CairoMakie = "~0.10.4"
 DataFrames = "~1.5.0"
+DiffusionMap = "~0.1.4"
 GraphMakie = "~0.5.3"
 JLD2 = "~0.4.31"
 MolecularGraph = "~0.13.0"
@@ -328,7 +360,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "3df6667d12315d82b3a6e141aaa6f89ed147672f"
+project_hash = "03880ebdc55c2351562c71a33e3518bd8b4b2b67"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -599,6 +631,12 @@ deps = ["InverseFunctions", "Test"]
 git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
 uuid = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
 version = "0.4.0"
+
+[[deps.DiffusionMap]]
+deps = ["LinearAlgebra", "StatsBase"]
+git-tree-sha1 = "10b3eb40cd8603a0484af111385dca990e204437"
+uuid = "809424d5-4f20-4f0f-8853-2ca5e8a82a88"
+version = "0.1.4"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI"]
@@ -2240,8 +2278,8 @@ version = "1.4.1+0"
 # ╠═efa9cfca-1327-4e20-bada-b89764402fa2
 # ╟─939d7fb8-fb7b-4778-a543-f36d434e6786
 # ╠═493d417d-96bd-4058-b618-ffd161dbaf18
+# ╠═ffd70ce4-d566-4830-bcbb-671f5168c8fe
 # ╠═8c61ba51-6914-43de-a078-30c6753ac972
-# ╠═4256ddf3-a213-4c74-8e32-7f16bfa1f346
 # ╠═d02cfcbc-0c7f-4cd6-a5c0-b52c9c883df4
 # ╠═2541a017-78f3-47dc-bab2-f00eaf1c7371
 # ╟─5d14291b-9b50-4ecd-a3f5-1273b1c8867e
@@ -2256,7 +2294,6 @@ version = "1.4.1+0"
 # ╠═cbb73ee9-5f2d-412a-b738-afe89ced7a22
 # ╠═d22375b3-67b6-4d5b-a386-20144c450933
 # ╠═933616ac-cc05-442b-b385-1be928a21126
-# ╠═ecefa22a-bf21-47ac-86f7-fbf03151bb24
 # ╠═55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
 # ╠═15c66917-d4b6-45cc-a9ad-463de1a3b304
 # ╠═2cb27135-1c86-4b7c-8082-d02fa83a7161
@@ -2264,9 +2301,20 @@ version = "1.4.1+0"
 # ╠═7f38c490-6af4-4e62-92ea-ea44b78d01ac
 # ╠═ea289244-061a-4812-b0d9-9b5f79530253
 # ╠═bde2c9ff-a806-40bd-aae8-141cf8816a6c
-# ╠═5656ca2e-c407-4db7-9436-977d6f58e61c
-# ╠═0114e96d-a1c9-4b7a-bda5-479f02140035
-# ╠═6ef5b48a-8d7a-4463-9837-df46cc3b6b52
-# ╠═42585049-03f9-4f56-8f7c-f59de2b453f5
+# ╠═36fd7860-ba69-4837-ac79-a76f5292b7a6
+# ╠═b40b764b-47d3-4166-934e-2fe9fd66e8e5
+# ╠═d18455bf-cbaa-4309-82c6-a1dc5afa6b4a
+# ╠═cbf6e190-1d70-45c2-8815-357a883e4746
+# ╠═4e0f7f2d-8f5b-4dcc-a315-daa8f1a68296
+# ╠═94e44e50-64e7-4e6a-bcf6-0bb70d3d9ea5
+# ╠═856acbf0-8e76-406f-80fa-51885c2951ab
+# ╠═1e936863-d89e-467c-a2ae-7f1f74a388cd
+# ╠═c15b1ba8-5ad7-45ea-8c54-fd04a95d9365
+# ╠═cea0b4c4-fcc1-4309-8463-6b9b9919b64e
+# ╠═45ac184e-1794-4dcf-b418-cdb3a9d99d94
+# ╠═590a4c84-ece4-4153-a53b-07462e32acba
+# ╠═fa2326d3-ff2e-4eb7-844a-e1576399e9a1
+# ╠═74412ec8-2f6f-4a84-ac6f-10bd7efe62fd
+# ╠═324fb0fb-4d09-4733-9ef2-f79331d73c7a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
