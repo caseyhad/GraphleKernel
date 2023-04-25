@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.23
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
@@ -72,8 +72,8 @@ md"""
 
 # ╔═╡ b6df0b4f-938f-478e-acf6-a48b88a85515
 begin
-	@load "C:\\Users\\dcase\\GraphletKernel\\gram_matrix.jld2" b
-	@load "C:\\Users\\dcase\\GraphletKernel\\rwalk_bsweet.jld2" a
+	@load "C:\\Users\\Danny\\GraphletKernel-1\\gram_matrix.jld2" b
+	@load "C:\\Users\\Danny\\GraphletKernel-1\\rwalk_bsweet.jld2" a
 end
 	
 
@@ -620,7 +620,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "3770cacc88afadd6d5ea4b4387cad94b614641f2"
+project_hash = "01b2f99e3f42e308fa72df77d4f8c02f9b897ceb"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
