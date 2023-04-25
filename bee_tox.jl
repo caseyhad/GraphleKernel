@@ -4,46 +4,42 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ c12d0680-d4c6-11ed-0ad2-87b521ff8b88
+# ╔═╡ fb5b256d-0f03-4027-84fd-bdf1af3733eb
 begin
-
+	# algo stuff
+	using Combinatorics, Graphs, MetaGraphs, Memoization
+	#notebook stuff
 	using BenchmarkTools, PlutoTest, DataFrames, StatsPlots
 	using CairoMakie, GraphMakie
 	using PlutoUI
-	using ProfileCanvas, Plots
+	using ProfileCanvas
 	using MolecularGraph, MolecularGraphKernels, CSV
-	using Tables, Downloads, JLD2, ScikitLearn, DiffusionMap
-	TableOfContents(title="Bittersweet experiments")
+	TableOfContents(title="ConSubG")
 end
 
-# ╔═╡ 8c61ba51-6914-43de-a078-30c6753ac972
-using LinearAlgebra
+# ╔═╡ a5e7b9a9-1381-4cf5-b1b0-8991abacba9d
+using LinearAlgebra, JLD2
 
-# ╔═╡ d56fb2bc-c960-4895-9946-2fb26850d697
-using Random
+# ╔═╡ ea24ce60-312e-4842-864d-fd9afed64a1c
+using DiffusionMap
 
-# ╔═╡ 9b787e2c-624f-448c-82e6-f25b93c3c31a
-using Statistics
+# ╔═╡ 3cbd05d2-2412-42bd-b4b6-51c83011cad0
+using ScikitLearn
 
-# ╔═╡ e0369420-53b5-4b46-9f1a-a9996f5dd146
-md"""
-## BitterSweet Data
-"""
+# ╔═╡ 9564dfe0-dfee-11ed-1a53-13f79bb9192c
+data = Base.download("https://raw.githubusercontent.com/SimonEnsemble/graph-kernel-SVM-for-toxicity-of-pesticides-to-bees/main/BeeToxAI%20Data/File%20S1%20Acute%20contact%20toxicity%20dataset%20for%20classification.csv")
 
-# ╔═╡ abcef5df-b311-4539-b73b-370570a2f248
-data = Base.download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/master/data/bitter-train.tsv")
-
-# ╔═╡ a7b2af0a-ded1-42e7-82ce-2a9ea6cbd441
+# ╔═╡ 7e76e422-e2ec-4eea-9964-fa400bcf260c
 begin
 	test_set = CSV.read(data, DataFrame)
-	size_max = 20
+	size_max = 40
 	size_min = 4
 	errored_smiles = []
 	df_new = DataFrame()
 	allowed_atoms = ['C','O','N','c','S','B','P','F','o','I','K']
 	disallowed_features = ['.','+']
-	for z ∈ 1:length(test_set[!,5])
-		smiles_string = test_set[z,5]
+	for z ∈ 1:length(test_set[!,2])
+		smiles_string = test_set[z,2]
 		if size_min <= count(n ∈ allowed_atoms for n ∈ smiles_string) <= size_max && all([i ∉ disallowed_features for i ∈ smiles_string])
 			try 
 				mol = smilestomol(smiles_string)
@@ -55,521 +51,125 @@ begin
 	end
 end
 
-# ╔═╡ c5e4db9f-f011-435a-9c96-121f1b527a67
-errored_smiles
+# ╔═╡ 521e8341-6a04-4f1f-b879-bba03233e010
+df_new
 
-# ╔═╡ 99373b35-0455-4e42-b6ab-2c2f4a35b684
-Graph_vector = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ df_new[:,5]]
+# ╔═╡ e600ca9d-f108-406d-9891-5bceb91e135c
+Graph_vector = [MetaGraph(smilestomol(i)) for i ∈ df_new[1:end .!= 209,2]]
 
+# ╔═╡ 591159e4-f22c-46f2-b912-d7a2fc6dc1d8
+cg_gram = gram_matrix(connected_graphlet, Graph_vector; n = 2:5, normalize = true);
 
-# ╔═╡ 37ce6eae-a293-409e-af38-55152e336930
-df_new[1137,:]
-
-# ╔═╡ 992f3ff2-463e-4d63-a588-6c19818f7b39
-md"""
-## kernel gram matrix
-"""
-
-# ╔═╡ b6df0b4f-938f-478e-acf6-a48b88a85515
-begin
-	@load "C:\\Users\\dcase\\GraphletKernel\\gram_matrix.jld2" b
-	@load "C:\\Users\\dcase\\GraphletKernel\\rwalk_bsweet.jld2" a
-end
-	
-
-# ╔═╡ cc66c4aa-6ec2-487c-a3da-9b981a1e7128
-#a = gram_matrix(random_walk, Graph_vector; l = 4, normalize = true);
-
-# ╔═╡ 51395874-758a-4118-a0dd-a0ce023ced3c
-#b = gram_matrix(connected_graphlet, Graph_vector; n = 2:5, normalize = true);
-
-# ╔═╡ 9302ec98-c6f2-47e1-93a1-b55c3caaff5f
+# ╔═╡ 9c0ebb07-8ddf-4884-bd5c-eda32b03925a
 begin
 	fig = Figure()
 	
-	ax1 = Axis(fig[1, 1], title = "Random Walk l=4")
-	CairoMakie.heatmap!(a)
+	ax1 = Axis(fig[1, 1], title = "graphlet")
+	CairoMakie.heatmap!(cg_gram)
 	ax1.aspect = DataAspect()
 	ax1.yreversed = true
 	ax1.xaxisposition = :top
 	
-	ax2 = Axis(fig[1, 2], title = "All-connected Graphlet n=2:5")
-	CairoMakie.heatmap!(b)
-	ax2.aspect = DataAspect()
-	ax2.yreversed = true
-	ax2.xaxisposition = :top
-
 	ax3 = Axis(fig[2, 1])
-	hist!(a[:])
-
-	ax4 = Axis(fig[2, 2])
-	hist!(b[:])
+	hist!(cg_gram[:])
+	ax3.aspect = 2
 	fig
 end
 
-# ╔═╡ abc86cd3-3027-41cd-8d92-9a79eb54736e
+
+# ╔═╡ 71e45f21-0e81-4c2f-be62-ea8643d2048a
 begin
-	for i ∈ eachindex(b[1,:])
-		for j in eachindex(b[:,1])
-			if isnan(b[i,j])
-				@show [i,j]
-			end
-			if !isreal(b[i,j])
-				@show [i,j]
-			end
-		end
-	end
-end
-
-# ╔═╡ efa9cfca-1327-4e20-bada-b89764402fa2
-bc = b[1:end .!= 1137, 1:end .!= 1137] ##remove PF6
-
-# ╔═╡ 939d7fb8-fb7b-4778-a543-f36d434e6786
-md"""
-## Laplician embedding
-"""
-
-# ╔═╡ 493d417d-96bd-4058-b618-ffd161dbaf18
-begin
-	L_b = zeros(size(bc))
-	for i ∈ eachindex(bc[1,:])
-		for j in eachindex(bc[:,1])
+	L_b = zeros(size(cg_gram))
+	for i ∈ eachindex(cg_gram[1,:])
+		for j in eachindex(cg_gram[:,1])
 			if i==j
-				L_b[i,j] = sum(bc[i,:])
+				L_b[i,j] = sum(cg_gram[i,:])
 			else
-				L_b[i,j] = -1 * bc[i,j]
+				L_b[i,j] = -1 * cg_gram[i,j]
 			end
 		end
 	end
 	L_b = Symmetric(L_b)
 end
 
-# ╔═╡ ffd70ce4-d566-4830-bcbb-671f5168c8fe
+# ╔═╡ 2c47aeca-54a3-49cc-b2ab-2ce0273c1f9d
 begin
-	Degree = zeros(size(bc))
-	for i = 1:size(bc)[1]
-		Degree[i,i] = sum(bc[i,:])
+	Degree = zeros(size(cg_gram))
+	for i = 1:size(cg_gram)[1]
+		Degree[i,i] = sum(cg_gram[i,:])
 	end
 	Degree
 end
 
-# ╔═╡ d02cfcbc-0c7f-4cd6-a5c0-b52c9c883df4
-L_b_rw = Degree^-1*L_b
+# ╔═╡ 13e4bb66-8e21-40d5-b1ec-7b3af699e518
+L_bee_rw = Degree^-1*L_b
 
-# ╔═╡ 2541a017-78f3-47dc-bab2-f00eaf1c7371
+# ╔═╡ e77f4c12-c305-4e3e-8e23-7c77b3cb3f59
+eigvals(L_bee_rw)
+
+# ╔═╡ edf0d374-9862-4b09-8c26-19d00f9ea701
 begin
-	x1 = eigvecs(L_b_rw)[:,2]
-	x2 = eigvecs(L_b_rw)[:,3]
+	x1 = eigvecs(L_bee_rw)[:,2]
+	x2 = eigvecs(L_bee_rw)[:,3]
 end
 
-# ╔═╡ 5d14291b-9b50-4ecd-a3f5-1273b1c8867e
-md"""
-### Clustering plot using a projection on to two eigenvectors of the Laplician matrix
-"""
+# ╔═╡ 6dde20af-0fce-4829-a077-a55fd0562e66
+x1
 
-# ╔═╡ f8516339-3e69-4c33-9d64-f755e4e5aea7
-function Colors(b,vec,df)
-	return_m = Array{Any}(undef, length(vec),2)
-	embeddings = b*vec
-	for i ∈ eachindex(embeddings)
-		if df[i,2] == "Tasteless"
-			return_m[i,1] = embeddings[i]
-			return_m[i,2] = "red"
-		elseif df[i,2] == "Sweet"
-			return_m[i,1] = embeddings[i]
-			return_m[i,2] = "green"
-		else
-			return_m[i,1] = embeddings[i]
-			return_m[i,2] = "blue"
+# ╔═╡ ced9d8bf-9552-4274-8651-ae5a7fb985d2
+function class_colors(df, column, labels, colors)
+	color_vec = []
+	for i ∈ df[:,column]
+		if i ∈ labels
+			push!(color_vec,colors[labels.==i][1])
 		end
 	end
-	return return_m
+	return color_vec
 end
 
-# ╔═╡ c95c43dd-b873-4b9e-90f7-5ca677ad8715
+# ╔═╡ cdaa2c4f-4e02-4f2e-8983-f2f08222b582
+class_colors(df_new, 1, ["Nontoxic", "Toxic"], ["brown", "green"])
+
+# ╔═╡ 781c32c8-cefa-445d-a3e5-939a62a726ce
+Plots.scatter(x1,x2,color = class_colors(df_new[1:end .!=209,:], 1, ["Nontoxic", "Toxic"], ["brown", "green"]), ms=2, ma=0.5)
+
+# ╔═╡ 202af559-790b-4869-b827-1b718d9ea418
+class_colors(df_new[1:end .!=209,:], 1, ["Nontoxic", "Toxic"], ["brown", "green"])
+
+# ╔═╡ 2539cd0e-1121-4f6f-98c2-b326cd634f5e
+t = 2
+
+# ╔═╡ 7ddd10fc-f891-4e09-9b74-a5fb4f107b47
+stochastic_gram = Degree^-1*cg_gram
+
+# ╔═╡ b6198a9b-c456-4cd0-89da-d903ad7f132e
+res = diffusion_map(stochastic_gram^t,3)
+
+# ╔═╡ 89c90ae5-9af4-49bd-8dfc-37d78bf269a8
+Plots.scatter(res[:,2],res[:,3],color = class_colors(df_new[1:end .!=209,:], 1, ["Nontoxic", "Toxic"], ["brown", "green"]), ms=2, ma=0.5)
+
+# ╔═╡ dc6d069a-137b-4d2a-b5aa-6cbaf6640b42
 @sk_import manifold: SpectralEmbedding;
 
-# ╔═╡ 15ce5a50-1611-41fd-bf64-32868d383ce2
+# ╔═╡ e7730b85-7f44-47d4-abab-0fcce97554fd
+res_pca = pca(cg_gram,2)
+
+# ╔═╡ e2a68eed-99f0-41f0-a102-c2aa2ed534ae
+Plots.scatter(res_pca[:,1],res_pca[:,2],color = class_colors(df_new[1:end .!=209,:], 1, ["Nontoxic", "Toxic"], ["brown", "green"]), ms=2, ma=0.5)
+
+# ╔═╡ 794938bf-6b20-432f-ba62-564477f3d2f4
 begin
-	spe = SpectralEmbedding(n_components = 5, affinity = "precomputed").fit_transform(bc)
+	spe = SpectralEmbedding(n_components = 5, affinity = "precomputed").fit_transform(cg_gram)
 	x_p_1= spe[:,1]
 	x_p_2= spe[:,2]
-	x_p_3= spe[:,3]
-	x_p_4= spe[:,4]
-	x_p_5= spe[:,5]
 end
 
-# ╔═╡ abca82bb-d94a-40e9-a7fd-9d3170dec601
-df_c = df_new[1:end .!= 1137,:]
-
-# ╔═╡ 63d4bc1d-b454-4a95-b93d-aaeedb398686
+# ╔═╡ dd87c552-8051-402f-b054-8d6e12ae0f6b
 begin
-	Plots.scatter(x1,x2, color = Colors(bc,x1,df_c)[:,2], ms=2, ma=0.5)
-	Plots.xlabel!("x3")
-	Plots.ylabel!("x5")
-end
-
-# ╔═╡ 85500f10-9473-4022-9ef9-e98da115dda5
-begin
-	Plots.scatter(x_p_1,x_p_2, color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
+	Plots.scatter(-x_p_1,-x_p_2, color = class_colors(df_new[1:end .!=209,:], 1, ["Nontoxic", "Toxic"], ["brown", "green"]), ms=2, ma=0.5)
 	Plots.xlabel!("x1")
 	Plots.ylabel!("x2")
 end
-
-# ╔═╡ 5e2cefb5-2421-4ae8-82ec-25fb433f55f4
-df_c
-
-# ╔═╡ f06a4f01-9575-42f7-83c7-c9d4b865ab6d
-md"""
-## Diffusion map
-"""
-
-# ╔═╡ f271e3ee-a9a2-48cf-b055-e6db53b8390a
-md"""
-### Gaussian kernel
-"""
-
-# ╔═╡ cbb73ee9-5f2d-412a-b738-afe89ced7a22
-function Gauss_kernel(x::Vector{Float64},y::Vector{Float64}; α = 1)::Float64
-	return exp(-sum((x-y).^2)/α)
-end
-
-# ╔═╡ d22375b3-67b6-4d5b-a386-20144c450933
-md"""
-### Construct gaussian kernel matrix
-"""
-
-# ╔═╡ 933616ac-cc05-442b-b385-1be928a21126
-begin
-	K = zeros(size(bc))
-	for i ∈ eachindex(K[1,:])
-		for j ∈ eachindex(K[:,1])
-			K[i,j] = Gauss_kernel(bc[i,:],bc[:,j], α = 20)
-		end
-	end
-end
-
-
-# ╔═╡ 55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
-begin
-	D = zeros(size(K))
-	for i = 1:size(K)[1]
-		D[i,i] = sum(K[i,:])
-	end
-	D
-end
-
-# ╔═╡ 15c66917-d4b6-45cc-a9ad-463de1a3b304
-P = D^-1*K;
-
-# ╔═╡ 2cb27135-1c86-4b7c-8082-d02fa83a7161
-Pₜ = P^2;
-
-# ╔═╡ e841aea2-ff49-4163-912b-f306bd855cfa
-ψ = real(eigvecs(Pₜ));
-
-# ╔═╡ 7f38c490-6af4-4e62-92ea-ea44b78d01ac
-λ = real(eigvals(Pₜ))
-
-# ╔═╡ ea289244-061a-4812-b0d9-9b5f79530253
-y = [λ[end-5]*ψ[:,end-5] λ[end-1]*ψ[:,end-1]]
-
-# ╔═╡ bde2c9ff-a806-40bd-aae8-141cf8816a6c
-Plots.scatter(y[:,2], y[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
-
-# ╔═╡ 36fd7860-ba69-4837-ac79-a76f5292b7a6
-bc
-
-# ╔═╡ b40b764b-47d3-4166-934e-2fe9fd66e8e5
-zz = Degree^-1*bc
-
-# ╔═╡ d18455bf-cbaa-4309-82c6-a1dc5afa6b4a
-t = 1
-
-# ╔═╡ cbf6e190-1d70-45c2-8815-357a883e4746
-res = diffusion_map(zz^t,2)
-
-# ╔═╡ 4e0f7f2d-8f5b-4dcc-a315-daa8f1a68296
-res_pca = pca(zz,2)
-
-# ╔═╡ 94e44e50-64e7-4e6a-bcf6-0bb70d3d9ea5
-Plots.scatter(res[:,1], res[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5,  size = (670, 600), lims = [1.05*minimum(union(res[:,1],res[:,2])),1.05*maximum(union(res[:,1],res[:,2]))])
-
-# ╔═╡ 856acbf0-8e76-406f-80fa-51885c2951ab
-Plots.scatter(res_pca[:,1], res_pca[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5, lims = [1.05*minimum(union(res_pca[:,1],res_pca[:,2])),1.05*maximum(union(res_pca[:,1],res_pca[:,2]))], size = (670, 600))
-
-# ╔═╡ 10bca3fb-6968-45bc-8b5c-ecc83e039e91
-md"""
-# SVM test
-"""
-
-# ╔═╡ 8645dea7-8136-4a7a-85fe-d8944f054401
-begin
-	@sk_import svm : SVC
-	@sk_import metrics: confusion_matrix
-	@sk_import metrics: precision_score
-	@sk_import metrics: accuracy_score
-	@sk_import metrics: recall_score
-	@sk_import metrics: f1_score
-	@sk_import preprocessing: KernelCenterer
-end
-
-
-# ╔═╡ 8ebc9bb5-16b0-4741-bd6f-ceb581b1de8c
-md"""
-## train SVM
-"""
-
-# ╔═╡ 210eecd9-4f22-4176-9764-53bd80a38d99
-function train_svm(K_train::Matrix, y_train::Vector, C::Float64)
-	# determine centering of Gram matrix
-	tf = KernelCenterer().fit(K_train)
-
-	# center Gram matrix
-	K_train_centered = tf.transform(K_train)
-
-	# train suppor vector classifier
-	svc = SVC(kernel="precomputed", C=C, class_weight="balanced")
-	svc.fit(K_train_centered, y_train)
-
-	return svc, tf
-end
-
-# ╔═╡ d9082bca-03b9-4153-af95-bfd5bfb79b20
-md"""
-### Split data into holdouts and training set
-"""
-
-# ╔═╡ 76e6e7cd-3d2e-4b4c-8620-64c0a1976ec9
-struct Scores
-	acc::Float64
-	pre::Float64
-	rec::Float64
-	f1::Float64
-	cm::Matrix{Float64}
-end
-
-# ╔═╡ dc3b633f-ab56-47bf-bcbf-83bce340870f
-function holdouts(size) return collect(1:1358)[randperm(length(collect(1:1358)))][1:size] end
-
-# ╔═╡ afa19c97-7bcb-4544-a00d-d8421f2b5c1c
-function train_and_score(holdouts,C)
-	training_indices = [i ∉ holdouts for i ∈ eachindex(df_c[:,6])]
-	train_class_vector = df_c[training_indices,6]
-	test_class_vector = df_c[holdouts,6]
-	test_matrix = bc[training_indices,holdouts]
-	train_matrix = bc[training_indices,training_indices]
-
-	svc, tf = train_svm(train_matrix, train_class_vector, C)
-	
-	K_test_centered = tf.transform(test_matrix')
-	y_pred = svc.predict(K_test_centered)
-	
-	accuracy = sum([y_pred[i] == test_class_vector[i] for i in 1:length(test_class_vector)])/length(holdouts)
-	return maximum([accuracy, 1-accuracy])
-
-	
-end
-
-# ╔═╡ 90d845d3-434e-4b58-9259-7db1361e9285
-function train_and_score_params(C,class_bitvector,gram_matrix,split)
-	test_split = holdouts(split)
-
-	train_index = [i ∉ test_split for i ∈ eachindex(class_bitvector)]
-	
-	train_class = class_bitvector[train_index]
-	test_class = class_bitvector[test_split]
-
-	train_matrix = gram_matrix[train_index,train_index]
-	test_matrix = gram_matrix[train_index,test_split]
-
-	
-
-
-	svc, tf = train_svm(train_matrix, train_class, Float64(C))
-	
-	K_test_centered = tf.transform(test_matrix')
-	y_pred = svc.predict(K_test_centered)
-	
-	accuracy = sum([y_pred[i] == test_class[i] for i in 1:length(test_class)])/length(test_class)
-	#return maximum([accuracy, 1-accuracy])
-	return Scores(
-		  accuracy_score(test_class, y_pred),
-		 length(unique(y_pred)) == 2 ? precision_score(test_class, y_pred) : 0.0,
-		    recall_score(test_class, y_pred),
-		        f1_score(test_class, y_pred),
-		confusion_matrix(test_class, y_pred)
-	)
-end
-
-# ╔═╡ 77d1d1ce-1bc6-44e4-ad86-6b982d15c0c6
-md"""
-## experiments w/C and # holdouts (split ratio)
-"""
-
-# ╔═╡ 432960e4-0f59-4a19-b398-b06304331b29
-begin
-	trials = zeros(10,10)
-	splits = Int.(collect(range(50,500,10)))
-	percent_test = (splits./1358)*100
-	stdevs = zeros(10)
-	means = zeros(10)
-	for i ∈ eachindex(splits)
-		for trial in 1:10
-			trials[trial,i] = train_and_score(holdouts(splits[i]),.001)
-		end
-		stdevs[i] = std(trials[:,i])
-		means[i] = sum(trials[:,i])/10
-	end
-end
-
-# ╔═╡ c92b14ba-b405-4fa5-b56a-5eb14dcf7cc7
-collect(range(50,500,10))
-
-# ╔═╡ b0a2ec17-6b76-4470-a6a1-c69e9ad3dc52
-begin
-	trialz = zeros(5,9)
-	Cs = [1000.0,100.0,10,1.0,.1,.01,.001,.0001,.00001]
-	stdevz = zeros(9)
-	meanz = zeros(9)
-	for i ∈ eachindex(Cs)
-		for trial in 1:5
-			trialz[trial,i] = train_and_score(holdouts(200),Cs[i])
-		end
-		stdevz[i] = std(trialz[:,i])
-		meanz[i] = sum(trialz[:,i])/5
-	end
-end
-
-# ╔═╡ 035667fd-8662-46d8-92bd-52ba47f8879e
-md"""
-### Results
-"""
-
-# ╔═╡ dfed0e32-2554-4bc9-b928-c99cda8a1c4e
-stdevz
-
-# ╔═╡ f0527b2b-5d0c-466a-b427-2f30a88f7ffe
-begin
-	fig5 = Figure()
-	
-	ax5 = Axis(fig5[1, 1], title = "acc vs %test")
-	CairoMakie.barplot!(percent_test, means)
-	errorbars!(percent_test, means, stdevs)
-
-	
-	ax6 = Axis(fig5[2, 1],title = "acc vs C")
-	CairoMakie.barplot!([3,2,1,0,-1,-2,-3,-4,-5], meanz)
-	errorbars!([3,2,1,0,-1,-2,-3,-4,-5], meanz, stdevz)
-	fig5
-end
-
-# ╔═╡ a8a68f88-8d61-425f-878c-8135b683244f
-md"""
-### out of sample data
-"""
-
-# ╔═╡ 62ade25f-d053-48e8-8847-0a02ae2250fb
-bitter_test_set = Base.download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/master/data/bitter-test.tsv")
-
-# ╔═╡ bcd25ea4-26d2-4ba9-ac92-f09a934b65d9
-begin
-	SVM_test_set = CSV.read(bitter_test_set, DataFrame)
-	errored_smiles_bittertest = []
-	df_new_bittertest = DataFrame()
-	allowed_atoms_bittertest = ['C','O','N','c','S','B','P','F','o','I','K']
-	disallowed_features_bittertest = ['.','+']
-	for z ∈ 1:length(SVM_test_set[!,5])
-		smiles_string = SVM_test_set[z,5]
-		if size_min <= count(n ∈ allowed_atoms for n ∈ smiles_string) <= size_max && all([i ∉ disallowed_features for i ∈ smiles_string])
-			try 
-				mol = smilestomol(smiles_string)
-				push!(df_new_bittertest,SVM_test_set[z,:], promote=true)
-			catch e
-				push!(errored_smiles_bittertest, [z,smiles_string])
-			end
-		end
-	end
-end
-
-# ╔═╡ 88386395-6322-4123-8daa-23016c1bc2e7
-function graphs_to_gram_vectors(smiles,gram_graph_vector; n=4)
-	new_graphs = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ smiles]
-	return_matrix = zeros(length(smiles),length(gram_graph_vector))
-	for i ∈ eachindex(new_graphs)
-		Gᵢ = new_graphs[i]
-		for j ∈ eachindex(gram_graph_vector)
-			Gⱼ = gram_graph_vector[j]
-			k_ii = connected_graphlet(Gᵢ,Gᵢ, n=n)
-			k_jj = connected_graphlet(Gⱼ,Gⱼ, n=n)
-			k_ij = connected_graphlet(Gᵢ,Gⱼ, n=n)
-			return_matrix[i,j] = k_ij/(k_ii*k_jj)^.5
-		end
-	end
-	return return_matrix
-end
-
-# ╔═╡ cc56e178-11ac-404d-9d7e-bf2fb61905fa
-begin
-	graph_1 = MolecularGraph.removehydrogens(smilestomol(df_new_bittertest[9,5]))
-	graph_2 = MolecularGraph.removehydrogens(smilestomol(df_new[2,5]))
-
-	MolecularGraph.is_isomorphic(graph_1,graph_2)
-end
-
-# ╔═╡ 2af51dd2-676c-4495-bb69-1c65be727a0b
-md"""
-## Experiments with sweet prediciton
-"""
-
-# ╔═╡ 7c99533f-87ee-42ad-8b23-2d541dc6f647
-test_split = holdouts(200)
-
-# ╔═╡ d3154f8d-5ad7-4221-80ae-029b538cd3c6
-begin
-	sweet_bitvector = zeros(length(df_c[:,2]))
-	for i in eachindex(df_c[:,2])
-		if df_c[i,2] == "Sweet"
-			sweet_bitvector[i] = true
-		else
-			sweet_bitvector[i] = false
-		end
-	end
-end
-
-# ╔═╡ fd1a63a5-97cb-4c09-8a8a-7ea31271c843
-begin
-	bitter_bitvector = zeros(length(df_c[:,2]))
-	for i in eachindex(df_c[:,2])
-		if df_c[i,2] == "Bitter"
-			bitter_bitvector[i] = true
-		else
-			bitter_bitvector[i] = false
-		end
-	end
-end
-
-# ╔═╡ 95d20575-9ecb-4324-bd26-fa1086192349
-begin
-	tasteless_bitvector = zeros(length(df_c[:,2]))
-	for i in eachindex(df_c[:,2])
-		if df_c[i,2] == "Tasteless"
-			tasteless_bitvector[i] = true
-		else
-			tasteless_bitvector[i] = false
-		end
-	end
-end
-
-# ╔═╡ e80d09fc-2502-494e-96fc-530a082842fa
-train_and_score_params(25,sweet_bitvector,bc,200)
-
-# ╔═╡ 155b328f-4862-4b37-9c6f-64c63b13ed6e
-train_and_score_params(25,bitter_bitvector,bc,200)
-	
-
-# ╔═╡ 6901402d-057f-412c-9b24-63852ef2679c
-train_and_score_params(25,tasteless_bitvector,bc,450)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -577,41 +177,42 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DiffusionMap = "809424d5-4f20-4f0f-8853-2ca5e8a82a88"
-Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
+MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
-Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 
 [compat]
 BenchmarkTools = "~1.3.2"
 CSV = "~0.10.9"
 CairoMakie = "~0.10.4"
+Combinatorics = "~1.0.2"
 DataFrames = "~1.5.0"
 DiffusionMap = "~0.1.4"
 GraphMakie = "~0.5.3"
+Graphs = "~1.8.0"
 JLD2 = "~0.4.31"
+Memoization = "~0.2.0"
+MetaGraphs = "~0.7.2"
 MolecularGraph = "~0.13.0"
 MolecularGraphKernels = "~0.9.0"
-Plots = "~1.38.9"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.50"
 ProfileCanvas = "~0.1.6"
 ScikitLearn = "~0.7.0"
 StatsPlots = "~0.15.4"
-Tables = "~1.10.1"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -620,7 +221,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "3770cacc88afadd6d5ea4b4387cad94b614641f2"
+project_hash = "4df7d0b96c44155602a50aff07729e7c5e84f51f"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1053,15 +654,15 @@ version = "0.1.4"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "0635807d28a496bb60bc15f465da0107fb29649c"
+git-tree-sha1 = "011a22022ed2fb0352a9bded0fa9d3793a8db362"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.0"
+version = "0.72.1"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "99e248f643b052a77d2766fe1a16fb32b661afd4"
+git-tree-sha1 = "7ea8ead860c85b27e83d198ea54bb2f387db9fc3"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.0+0"
+version = "0.72.1+1"
 
 [[deps.GeoInterface]]
 deps = ["Extents"]
@@ -1142,9 +743,9 @@ version = "2.8.1+1"
 
 [[deps.HypergeometricFunctions]]
 deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
-git-tree-sha1 = "d926e9c297ef4607866e8ef5df41cde1a642917f"
+git-tree-sha1 = "432b5b03176f8182bd6841fbfc42c718506a2d5f"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.14"
+version = "0.3.15"
 
 [[deps.Hyperscript]]
 deps = ["Test"]
@@ -1223,9 +824,9 @@ version = "1.4.0"
 
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "d979e54b71da82f3a65b62553da4fc3d18c9004c"
+git-tree-sha1 = "0cb9352ef2e01574eeebdb102948a58740dcaf83"
 uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2018.0.3+2"
+version = "2023.1.0+0"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -1295,9 +896,9 @@ version = "1.4.1"
 
 [[deps.JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
-git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
+git-tree-sha1 = "31e996f0a15c7b280ba9f76636b3ff9e2ae58c9a"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.21.3"
+version = "0.21.4"
 
 [[deps.JpegTurbo]]
 deps = ["CEnum", "FileIO", "ImageCore", "JpegTurbo_jll", "TOML"]
@@ -1495,9 +1096,9 @@ version = "1.2.0"
 
 [[deps.MathTeXEngine]]
 deps = ["AbstractTrees", "Automa", "DataStructures", "FreeTypeAbstraction", "GeometryBasics", "LaTeXStrings", "REPL", "RelocatableFolders", "Test", "UnicodeFun"]
-git-tree-sha1 = "64890e1e8087b71c03bd6b8af99b49c805b2a78d"
+git-tree-sha1 = "8f52dbaa1351ce4cb847d95568cb29e62a307d93"
 uuid = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
-version = "0.5.5"
+version = "0.5.6"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
@@ -1644,9 +1245,9 @@ version = "0.8.1+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
-git-tree-sha1 = "6503b77492fd7fcb9379bf73cd31035670e3c509"
+git-tree-sha1 = "5b3e170ea0724f1e3ed6018c5b006c190f80e87d"
 uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
-version = "1.3.3"
+version = "1.3.5"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1760,9 +1361,9 @@ version = "1.3.4"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "186d38ea29d5c4f238b2d9fe6e1653264101944b"
+git-tree-sha1 = "5434b0ee344eaf2854de251f326df8720f6a7b55"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.9"
+version = "1.38.10"
 
 [[deps.PlutoTest]]
 deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
@@ -2063,9 +1664,9 @@ version = "0.1.1"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
-git-tree-sha1 = "b8d897fe7fa688e93aef573711cb207c08c9e11e"
+git-tree-sha1 = "63e84b7fdf5021026d0f17f76af7c57772313d99"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.5.19"
+version = "1.5.21"
 
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "6b7ba252635a5eff6a0b0664a41ee140a1c9e72a"
@@ -2167,9 +1768,9 @@ version = "0.6.4"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "94f38103c984f89cf77c402f2a68dbd870f8165f"
+git-tree-sha1 = "0b829474fed270a4b0ab07117dce9b9a2fa7581a"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.11"
+version = "0.9.12"
 
 [[deps.Tricks]]
 git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
@@ -2211,9 +1812,9 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "bb37ed24f338bc59b83e3fc9f32dd388e5396c53"
+git-tree-sha1 = "dba3eba51b9512695b59e0bd8263ac074c5ed2d9"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.12.4"
+version = "1.13.1"
 
 [[deps.Unmarshal]]
 deps = ["JSON", "LazyJSON", "Missings", "Nullables", "Requires"]
@@ -2522,83 +2123,34 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═c12d0680-d4c6-11ed-0ad2-87b521ff8b88
-# ╟─e0369420-53b5-4b46-9f1a-a9996f5dd146
-# ╠═abcef5df-b311-4539-b73b-370570a2f248
-# ╠═a7b2af0a-ded1-42e7-82ce-2a9ea6cbd441
-# ╠═c5e4db9f-f011-435a-9c96-121f1b527a67
-# ╠═99373b35-0455-4e42-b6ab-2c2f4a35b684
-# ╠═37ce6eae-a293-409e-af38-55152e336930
-# ╠═992f3ff2-463e-4d63-a588-6c19818f7b39
-# ╠═b6df0b4f-938f-478e-acf6-a48b88a85515
-# ╠═cc66c4aa-6ec2-487c-a3da-9b981a1e7128
-# ╠═51395874-758a-4118-a0dd-a0ce023ced3c
-# ╠═9302ec98-c6f2-47e1-93a1-b55c3caaff5f
-# ╠═abc86cd3-3027-41cd-8d92-9a79eb54736e
-# ╠═efa9cfca-1327-4e20-bada-b89764402fa2
-# ╟─939d7fb8-fb7b-4778-a543-f36d434e6786
-# ╠═493d417d-96bd-4058-b618-ffd161dbaf18
-# ╠═ffd70ce4-d566-4830-bcbb-671f5168c8fe
-# ╠═8c61ba51-6914-43de-a078-30c6753ac972
-# ╠═d02cfcbc-0c7f-4cd6-a5c0-b52c9c883df4
-# ╠═2541a017-78f3-47dc-bab2-f00eaf1c7371
-# ╟─5d14291b-9b50-4ecd-a3f5-1273b1c8867e
-# ╠═63d4bc1d-b454-4a95-b93d-aaeedb398686
-# ╠═f8516339-3e69-4c33-9d64-f755e4e5aea7
-# ╠═c95c43dd-b873-4b9e-90f7-5ca677ad8715
-# ╠═15ce5a50-1611-41fd-bf64-32868d383ce2
-# ╠═abca82bb-d94a-40e9-a7fd-9d3170dec601
-# ╠═85500f10-9473-4022-9ef9-e98da115dda5
-# ╠═5e2cefb5-2421-4ae8-82ec-25fb433f55f4
-# ╟─f06a4f01-9575-42f7-83c7-c9d4b865ab6d
-# ╟─f271e3ee-a9a2-48cf-b055-e6db53b8390a
-# ╠═cbb73ee9-5f2d-412a-b738-afe89ced7a22
-# ╠═d22375b3-67b6-4d5b-a386-20144c450933
-# ╠═933616ac-cc05-442b-b385-1be928a21126
-# ╠═55c080c0-ad4a-4c4d-ba5d-626aa57d34b2
-# ╠═15c66917-d4b6-45cc-a9ad-463de1a3b304
-# ╠═2cb27135-1c86-4b7c-8082-d02fa83a7161
-# ╠═e841aea2-ff49-4163-912b-f306bd855cfa
-# ╠═7f38c490-6af4-4e62-92ea-ea44b78d01ac
-# ╠═ea289244-061a-4812-b0d9-9b5f79530253
-# ╠═bde2c9ff-a806-40bd-aae8-141cf8816a6c
-# ╠═36fd7860-ba69-4837-ac79-a76f5292b7a6
-# ╠═b40b764b-47d3-4166-934e-2fe9fd66e8e5
-# ╠═d18455bf-cbaa-4309-82c6-a1dc5afa6b4a
-# ╠═cbf6e190-1d70-45c2-8815-357a883e4746
-# ╠═4e0f7f2d-8f5b-4dcc-a315-daa8f1a68296
-# ╠═94e44e50-64e7-4e6a-bcf6-0bb70d3d9ea5
-# ╠═856acbf0-8e76-406f-80fa-51885c2951ab
-# ╟─10bca3fb-6968-45bc-8b5c-ecc83e039e91
-# ╠═8645dea7-8136-4a7a-85fe-d8944f054401
-# ╠═8ebc9bb5-16b0-4741-bd6f-ceb581b1de8c
-# ╠═210eecd9-4f22-4176-9764-53bd80a38d99
-# ╠═d9082bca-03b9-4153-af95-bfd5bfb79b20
-# ╠═76e6e7cd-3d2e-4b4c-8620-64c0a1976ec9
-# ╠═dc3b633f-ab56-47bf-bcbf-83bce340870f
-# ╠═afa19c97-7bcb-4544-a00d-d8421f2b5c1c
-# ╠═90d845d3-434e-4b58-9259-7db1361e9285
-# ╠═d56fb2bc-c960-4895-9946-2fb26850d697
-# ╟─77d1d1ce-1bc6-44e4-ad86-6b982d15c0c6
-# ╠═432960e4-0f59-4a19-b398-b06304331b29
-# ╠═c92b14ba-b405-4fa5-b56a-5eb14dcf7cc7
-# ╠═b0a2ec17-6b76-4470-a6a1-c69e9ad3dc52
-# ╟─035667fd-8662-46d8-92bd-52ba47f8879e
-# ╠═dfed0e32-2554-4bc9-b928-c99cda8a1c4e
-# ╠═f0527b2b-5d0c-466a-b427-2f30a88f7ffe
-# ╠═9b787e2c-624f-448c-82e6-f25b93c3c31a
-# ╠═a8a68f88-8d61-425f-878c-8135b683244f
-# ╠═62ade25f-d053-48e8-8847-0a02ae2250fb
-# ╠═bcd25ea4-26d2-4ba9-ac92-f09a934b65d9
-# ╠═88386395-6322-4123-8daa-23016c1bc2e7
-# ╠═cc56e178-11ac-404d-9d7e-bf2fb61905fa
-# ╠═2af51dd2-676c-4495-bb69-1c65be727a0b
-# ╠═7c99533f-87ee-42ad-8b23-2d541dc6f647
-# ╠═d3154f8d-5ad7-4221-80ae-029b538cd3c6
-# ╠═fd1a63a5-97cb-4c09-8a8a-7ea31271c843
-# ╠═95d20575-9ecb-4324-bd26-fa1086192349
-# ╠═e80d09fc-2502-494e-96fc-530a082842fa
-# ╠═155b328f-4862-4b37-9c6f-64c63b13ed6e
-# ╠═6901402d-057f-412c-9b24-63852ef2679c
+# ╠═fb5b256d-0f03-4027-84fd-bdf1af3733eb
+# ╠═9564dfe0-dfee-11ed-1a53-13f79bb9192c
+# ╠═7e76e422-e2ec-4eea-9964-fa400bcf260c
+# ╠═521e8341-6a04-4f1f-b879-bba03233e010
+# ╠═e600ca9d-f108-406d-9891-5bceb91e135c
+# ╠═591159e4-f22c-46f2-b912-d7a2fc6dc1d8
+# ╠═a5e7b9a9-1381-4cf5-b1b0-8991abacba9d
+# ╠═9c0ebb07-8ddf-4884-bd5c-eda32b03925a
+# ╠═71e45f21-0e81-4c2f-be62-ea8643d2048a
+# ╠═2c47aeca-54a3-49cc-b2ab-2ce0273c1f9d
+# ╠═13e4bb66-8e21-40d5-b1ec-7b3af699e518
+# ╠═e77f4c12-c305-4e3e-8e23-7c77b3cb3f59
+# ╠═6dde20af-0fce-4829-a077-a55fd0562e66
+# ╠═edf0d374-9862-4b09-8c26-19d00f9ea701
+# ╠═ced9d8bf-9552-4274-8651-ae5a7fb985d2
+# ╠═cdaa2c4f-4e02-4f2e-8983-f2f08222b582
+# ╠═781c32c8-cefa-445d-a3e5-939a62a726ce
+# ╠═202af559-790b-4869-b827-1b718d9ea418
+# ╠═2539cd0e-1121-4f6f-98c2-b326cd634f5e
+# ╠═ea24ce60-312e-4842-864d-fd9afed64a1c
+# ╠═7ddd10fc-f891-4e09-9b74-a5fb4f107b47
+# ╠═b6198a9b-c456-4cd0-89da-d903ad7f132e
+# ╠═89c90ae5-9af4-49bd-8dfc-37d78bf269a8
+# ╠═3cbd05d2-2412-42bd-b4b6-51c83011cad0
+# ╠═dc6d069a-137b-4d2a-b5aa-6cbaf6640b42
+# ╠═e7730b85-7f44-47d4-abab-0fcce97554fd
+# ╠═e2a68eed-99f0-41f0-a102-c2aa2ed534ae
+# ╠═794938bf-6b20-432f-ba62-564477f3d2f4
+# ╠═dd87c552-8051-402f-b054-8d6e12ae0f6b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
