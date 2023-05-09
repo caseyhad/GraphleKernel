@@ -12,7 +12,7 @@ end
 
 # ╔═╡ 9a3b5873-ead9-48ed-a007-480254492d99
 md"""
-## Load data
+# Load data
 """
 
 # ╔═╡ 52271d30-12db-4b0e-aa6e-c49f2ecc49bc
@@ -29,7 +29,7 @@ cg_gram = b[1:end .!= 1137, 1:end .!= 1137]; ##remove PF6
 
 # ╔═╡ 74d30a7a-5731-48d3-9a8c-3af70e22fb90
 md"""
-## SVM
+# SVM
 """
 
 # ╔═╡ d05d720b-bf4c-4a87-9dfb-a1371cf7c58f
@@ -53,8 +53,15 @@ struct Scores
 end
 
 # ╔═╡ 433de812-d272-4a01-bb62-a1808f333065
-function holdouts(size) 
-	return collect(1:1358)[randperm(length(collect(1:1358)))][1:size] 
+function holdouts(size; validation_and_training = false, validation_size = 100, testing_size = 100) 
+	if validation_and_training
+		holdouts = collect(1:1358)[randperm(length(collect(1:1358)))][1:validation_size+testing_size]
+		validation = holdouts[1:validation_size]
+		testing = holdouts[validation_size+1:testing_size+validation_size]
+		return validation,testing
+	else
+		return collect(1:1358)[randperm(length(collect(1:1358)))][1:size] 
+	end
 end
 
 # ╔═╡ 2024c6b7-619b-410a-9824-e3cf3073a4a4
@@ -125,7 +132,7 @@ train_and_score_params(25,tasteless_bitvector,cg_gram,400)
 
 # ╔═╡ 7156399b-0494-4d51-b625-b54666ec872b
 md"""
-## Decision visualizations
+### Decision visualizations
 """
 
 # ╔═╡ ed4d8486-884e-4e92-92fb-48d1e8ed2610
@@ -181,6 +188,53 @@ function train_and_score_params_linear(C,class_bitvector,gram_matrix,split)
 		    recall_score(test_class, y_pred),
 		        f1_score(test_class, y_pred),
 		confusion_matrix(test_class, y_pred)
+	)
+end
+
+# ╔═╡ 0c949b00-ca82-4f31-a8bc-2b53793836d6
+function Scoring(class_bitvector, prediction_bitvector)
+	return Scores(
+		  accuracy_score(
+			vec(
+				  Bool.(class_bitvector)
+			  ), 
+			vec(
+				  Bool.(prediction_bitvector)
+			  )
+		  ),
+		 length(unique(Bool.(class_bitvector))) == 2 ? 
+		 precision_score(
+			vec(
+				  Bool.(class_bitvector)
+			  ), 
+			vec(
+				  Bool.(prediction_bitvector)
+			  )
+		 ) : 0.0,
+		recall_score(
+			vec(
+				  Bool.(class_bitvector)
+			  ), 
+			vec(
+				  Bool.(prediction_bitvector)
+			  )
+		),
+		f1_score(
+			vec(
+				  Bool.(class_bitvector)
+			  ), 
+			vec(
+				  Bool.(prediction_bitvector)
+			  )
+		),
+		confusion_matrix(
+			vec(
+				  Bool.(class_bitvector)
+			  ), 
+			vec(
+				  Bool.(prediction_bitvector)
+			  )
+		)
 	)
 end
 
@@ -264,114 +318,418 @@ end
 
 # ╔═╡ 291a0ac4-8ce8-4e7d-8007-7f66aa7e19f2
 md"""
-## Flux
+# Flux
 """
 
-# ╔═╡ 2175fe30-6c35-4bfd-bfea-484269680b42
-begin
-	model = Chain(
-    Dense(1358 => 42, σ),
-    BatchNorm(42),
-    Dense(42 => 18, σ), 
-	BatchNorm(18),
-	Dense(18 => 12, σ), 
-	BatchNorm(12),
-	Dense(12 => 3),
-	softmax)
-end
+# ╔═╡ 00e8bcf2-4625-4421-9197-b7f8582c09ed
+md"""
+## Multiclass classifier
+"""
 
 # ╔═╡ 0f25afdd-384f-46e4-8adc-2788f98d7936
 begin
-	test_indices = holdouts(200)
+	test_indices = holdouts(280, validation_and_training=false, validation_size = 200, testing_size = 200)
 
 	train_indices = [i ∉ test_indices for i ∈ eachindex(sweet_bitvector)]
 	
 	training_classes_sweet = sweet_bitvector[train_indices]
 	testing_classes_sweet = sweet_bitvector[test_indices]
+	#validation_classes_sweet = sweet_bitvector[validation_indices]
 	
 	training_classes_bitter = bitter_bitvector[train_indices]
 	testing_classes_bitter = bitter_bitvector[test_indices]
+	#validation_classes_bitter = bitter_bitvector[validation_indices]
 
+	testing_classes_tasteless = tasteless_bitvector[test_indices]
+	training_classes_tasteless = tasteless_bitvector[train_indices]
+	#validation_classes_tasteless = tasteless_bitvector[validation_indices]
+	
 	nnet_training_matrix = Float32.(cg_gram[:,train_indices])
 	nnet_test_matrix = Float32.(cg_gram[:,test_indices])
+	#nnet_validation_matrix = Float32.(cg_gram[:,validation_indices])
 
-end
+end;
 
-# ╔═╡ f5c7f438-c027-402d-a23a-be5e35739a53
-out1 = model(nnet_training_matrix)
-
-# ╔═╡ 475cb28d-7fe5-4d92-8f06-091d6f8e13be
-target = Flux.onehotbatch(training_classes_sweet+2*training_classes_bitter, [2,1,0])
-
-# ╔═╡ a5fc263d-cd3f-4d7c-939f-cdc1120b2b8f
-loader = Flux.DataLoader((nnet_training_matrix, target), batchsize=64, shuffle=true)
-
-# ╔═╡ 89348c07-65c9-48a5-9b38-240cc9eb060b
-optim = Flux.setup(Flux.Adam(0.01), model)
-
-# ╔═╡ 8fb754f8-7fa1-4b10-8a4b-36fc5bf902c8
+# ╔═╡ f0412864-798b-4512-906c-e556813bf773
 begin
+
+	
+	model = Chain(
+    Dense(1358 => 18, tanh),
+	Dense(18 => 12, tanh), 
+	Dense(12 => 12, tanh), 
+	Dense(12 => 12, tanh), 
+	Dropout(.1),
+	Dense(12 => 3, σ),
+	softmax);
+		
+	target = Flux.onehotbatch(training_classes_sweet+2*training_classes_bitter, [2,1,0])
+
+	testing_target = Flux.onehotbatch(testing_classes_sweet+2*testing_classes_bitter, [2,1,0])
+	
+	loader = Flux.DataLoader((nnet_training_matrix, target), batchsize=200, shuffle=true)
+	
+	optim = Flux.setup(Flux.Adam(.0001), model)
+
+	#validation_target = Flux.onehotbatch(validation_classes_sweet+2*validation_classes_bitter, [2,1,0])
+
+	#validation = Flux.DataLoader((nnet_validation_matrix, validation_target), batchsize=200, shuffle=true)
+	
 	losses = []
-	@showprogress for epoch in 1:1500
+	training_loss = []
+	old_error = 0
+	epoch_best = 1
+	epoch_losses = []
+	training_loss_avg = []
+
+	testmode!(model, false)
+	
+	for epoch in 1:30000
 	    for (x, y) in loader
 	        loss, grads = Flux.withgradient(model) do m
 	            # Evaluate model and loss inside gradient context:
 	            y_hat = m(x)
 	            Flux.crossentropy(y_hat, y)
+				
 	        end
 	        Flux.update!(optim, model, grads[1])
-	        push!(losses, loss)  # logging, outside gradient context
+	        push!(losses, loss)  # batch loss logging
+			
 	    end
+
+		# loss logging by epoch
+		epoch_loss = Flux.crossentropy(model(nnet_training_matrix), target)
+		push!(epoch_losses, epoch_loss)
+
+		# test set loss logging
+		y_hat_v = model(nnet_test_matrix)
+		error = Flux.crossentropy(y_hat_v, testing_target)
+		push!(training_loss, error)
+
+		# test set loss rolling average
+		if epoch > 50
+			rolling_average = sum(training_loss[epoch-50:epoch])/50
+			push!(training_loss_avg, rolling_average)
+		end
+
+		#exit loop based on test set overfit
+		if epoch > 300 && 
+		(epoch-findlast(training_loss_avg.==minimum(training_loss_avg))-50) > epoch/10
+			break
+			
+		end
 	end
 end
 
-# ╔═╡ 52c0caca-c4f1-4cb2-9dcb-9f7491e2465c
-optim
+# ╔═╡ f5c7f438-c027-402d-a23a-be5e35739a53
+out1 = model(nnet_training_matrix)
 
-# ╔═╡ 66d79222-93d4-4bfb-a6b4-f2382da4556f
-out2 = model(nnet_training_matrix)
+# ╔═╡ db0f1e11-6df2-4083-8d0f-db9797de6bba
+Plots.plot(eachindex(losses),losses)
 
-# ╔═╡ b9277460-9d25-4c76-bc58-d2a4ec2b3bc5
-out_test_set = model(nnet_test_matrix)
+# ╔═╡ 9cc4b623-c0fa-4603-9308-47e15c0d4084
+Plots.plot(eachindex(training_loss_avg), training_loss_avg)
 
-# ╔═╡ a854e0bb-e87b-4678-8217-70331f65f55b
-most_probable_outputs = permutedims(hcat([out2[:,i].==maximum(out2[:,i]) for i in eachindex(out2[1,:])]...))'
+# ╔═╡ 968bcb20-8937-4306-a14a-b5877b1b06d2
+begin
+	testmode!(model)
+	# model output after training - in sample
+	out2 = model(nnet_training_matrix) 
+	c_n_sweet_hat = out2[2,:]
+	c_n_bitter_hat = out2[1,:]
+	c_n_tasteless_hat = out2[3,:]
 
-# ╔═╡ 0c806cd6-7042-4a31-8dbe-360736417624
-most_probable_prediction_outputs = permutedims(hcat([out_test_set[:,i].==maximum(out_test_set[:,i]) for i in eachindex(out_test_set[1,:])]...))'
+	# model output after training - out of sample test
+	out_test = model(nnet_test_matrix) 
+	c_n_sweet_hat_os = out_test[2,:]
+	c_n_bitter_hat_os = out_test[1,:]
+	c_n_tasteless_hat_os = out_test[3,:]
 
-# ╔═╡ cd56401d-671a-431c-8fff-33a3a545a7cf
-in_sample_model_accuracy = sum([most_probable_outputs[:,i] == target[:,i] for i in eachindex(out2[1,:])])/length(most_probable_outputs[1,:])
 
-# ╔═╡ 50e168f3-10fe-440f-a662-1cbcfc802629
-target_out = Flux.onehotbatch(testing_classes_sweet+2*testing_classes_bitter, [2,1,0])
+	# most probable outputs - in sample prediction/training set reconstruction
+	c_n_mp_sweet_hat = permutedims(hcat([out2[2,i].==maximum(out2[:,i]) for i in eachindex(out2[2,:])]...))'
+	c_n_mp_bitter_hat = permutedims(hcat([out2[1,i].==maximum(out2[:,i]) for i in eachindex(out2[1,:])]...))'
+	c_n_mp_tasteless_hat = permutedims(hcat([out2[3,i].==maximum(out2[:,i]) for i in eachindex(out2[3,:])]...))'
 
-# ╔═╡ 1779b1b5-994d-4b8e-b586-c304c8113363
-out_sample_model_accuracy = sum([most_probable_prediction_outputs[:,i] == target_out[:,i] for i in eachindex(most_probable_prediction_outputs[1,:])])/length(most_probable_prediction_outputs[1,:])
+	# most probable outputs - out of sample test
+	c_n_mp_sweet_hat_os = 
+		permutedims(
+			hcat(
+				[out_test[2,i].==maximum(out_test[:,i]) for i in eachindex(out_test[2,:])]...
+			)
+		)'
+	c_n_mp_bitter_hat_os = permutedims(hcat([out_test[1,i].==maximum(out_test[:,i]) for i in eachindex(out_test[1,:])]...))'
+	c_n_mp_tasteless_hat_os = permutedims(hcat([out_test[3,i].==maximum(out_test[:,i]) for i in eachindex(out_test[3,:])]...))'
 
-# ╔═╡ f5253510-8c79-4f7b-ac65-5af20a51005b
-sweet_y_hat = most_probable_outputs[2,:]
+	
 
-# ╔═╡ 593fe657-98ab-423c-bc27-396cfb33ea45
-sweet_os_y_hat = most_probable_prediction_outputs[2,:]
+end;
 
-# ╔═╡ 8c6d2afa-e78a-4566-b86e-4f717454b57e
-sweet_scores_in_sample = Scores(
-		  accuracy_score(training_classes_sweet, sweet_y_hat),
-		 length(unique(sweet_y_hat)) == 2 ? precision_score(training_classes_sweet, sweet_y_hat) : 0.0,
-		    recall_score(training_classes_sweet, sweet_y_hat),
-		        f1_score(training_classes_sweet, sweet_y_hat),
-		confusion_matrix(training_classes_sweet, sweet_y_hat)
-	)
+# ╔═╡ 80691e93-d397-4efa-bea1-c97316e681e6
+md"""
+### scores
+"""
 
-# ╔═╡ e815b2a4-d99a-4c9c-8b39-5bfe21cf557e
-sweet_scores_out_sample = Scores(
-		  accuracy_score(testing_classes_sweet, sweet_os_y_hat),
-		 length(unique(sweet_os_y_hat)) == 2 ? precision_score(testing_classes_sweet, sweet_os_y_hat) : 0.0,
-		    recall_score(testing_classes_sweet, sweet_os_y_hat),
-		        f1_score(testing_classes_sweet, sweet_os_y_hat),
-		confusion_matrix(testing_classes_sweet, sweet_os_y_hat)
-	)
+# ╔═╡ 75eb906b-059d-4521-9d3f-a1eb97cb92af
+Scoring(testing_classes_sweet, c_n_mp_sweet_hat_os)
+
+# ╔═╡ e6b0558b-58b4-4151-9885-8f6ba6894c3e
+Scoring(testing_classes_bitter, c_n_mp_bitter_hat_os)
+
+# ╔═╡ d935f630-0e80-453e-9e90-feb54f8de122
+Scoring(testing_classes_tasteless, c_n_mp_tasteless_hat_os)
+
+# ╔═╡ 0d950e3f-c220-4f8e-906d-0c9204a1c705
+md"""
+## 1:1 Classifiers
+"""
+
+# ╔═╡ 0a4391b2-fbb7-4046-814c-42a4a7893877
+md"""
+### Sweet vs Non-sweet
+"""
+
+# ╔═╡ 20e20031-ee7c-4324-b411-c974b2bfc5f8
+function nnet_sweet_c()
+	model_sweet_c = Chain(
+    Dense(1358 => 18, tanh),
+    BatchNorm(18),
+	Dense(18 => 12, tanh), 
+	BatchNorm(12),
+	Dense(12 => 12, tanh), 
+	Dropout(.2),
+	Dense(12 => 12, tanh), 
+	BatchNorm(12),
+	Dense(12 => 2, σ),
+	softmax);
+			
+	target_sweet_c = Flux.onehotbatch(training_classes_sweet, [true, false])
+
+	testing_target_sweet_c = Flux.onehotbatch(testing_classes_sweet, [true, false])
+	
+	loader_sweet_c = Flux.DataLoader((nnet_training_matrix, target_sweet_c), batchsize=200, shuffle=true)
+	
+	optim_sweet_c = Flux.setup(Flux.Adam(.0001), model_sweet_c)
+
+	#validation_target = Flux.onehotbatch(validation_classes_sweet+2*validation_classes_bitter, [2,1,0])
+
+	#validation = Flux.DataLoader((nnet_validation_matrix, validation_target), batchsize=200, shuffle=true)
+	
+	losses_sweet_c = []
+	training_loss_sweet_c = []
+	epoch_losses_sweet_c = []
+	training_loss_avg_sweet_c = []
+	
+	testmode!(model_sweet_c, false)
+	for epoch in 1:30000
+	    for (x, y) in loader_sweet_c
+	        loss, grads = Flux.withgradient(model_sweet_c) do m
+	            # Evaluate model and loss inside gradient context:
+	            y_hat = m(x)
+	            Flux.mse(y_hat, y)
+				
+	        end
+	        Flux.update!(optim_sweet_c, model_sweet_c, grads[1])
+	        push!(losses_sweet_c, loss)  # batch loss logging
+			
+	    end
+
+		# loss logging by epoch
+		epoch_loss = Flux.mse(model_sweet_c(nnet_training_matrix), target_sweet_c)
+		push!(epoch_losses_sweet_c, epoch_loss)
+
+		# test set loss logging
+		y_hat_v = model_sweet_c(nnet_test_matrix)
+		error = Flux.mse(y_hat_v, testing_target_sweet_c)
+		push!(training_loss_sweet_c, error)
+
+		# test set loss rolling average
+		if epoch > 50
+			rolling_average = sum(training_loss_sweet_c[epoch-50:epoch])/50
+			push!(training_loss_avg_sweet_c, rolling_average)
+		end
+
+		# saving model snapshot at global minimum
+		#if epoch > 300 && training_loss_avg_sweet_c[end].==minimum(training_loss_avg_sweet_c)
+		# 	model_save = Flux.state(model_sweet_c)
+		#end
+	
+		# exit loop based on test set overfit
+		if epoch > 300 && 
+		(epoch-findlast(training_loss_avg_sweet_c.==minimum(training_loss_avg_sweet_c))-50) > 500
+			break
+			
+		end
+	end
+
+	#Flux.loadmodel!(model_sweet_c, model_save)
+	testmode!(model_sweet_c)
+	return model_sweet_c(nnet_test_matrix), training_loss_avg_sweet_c, epoch_losses_sweet_c
+end
+
+# ╔═╡ e77c3fb4-b15b-48e3-9207-7867f724764b
+out_sweet, training_loss_avg_sweet_c, epoch_losses_sweet_c = nnet_sweet_c();
+
+# ╔═╡ b0243fea-02a2-48a7-8f04-436d0bf5f212
+Plots.plot(eachindex(training_loss_avg_sweet_c), training_loss_avg_sweet_c)
+
+# ╔═╡ a04dde28-4fc3-4630-8dbf-1fa7417df298
+sweet_c_y_hat = permutedims(hcat([out_sweet[1,i].==maximum(out_sweet[:,i]) for i in eachindex(out_sweet[1,:])]...))';
+
+# ╔═╡ 365270e9-c043-4752-b56d-aa141f0bd297
+Scoring(testing_classes_sweet, sweet_c_y_hat)
+
+# ╔═╡ c319887c-436c-42c1-b923-7c7e813f9cd6
+md"""
+### Bitter/non-bitter
+"""
+
+# ╔═╡ a3575c2e-e7a0-4d10-91ac-180a24084010
+function nnet_bitter_c()
+	model_bitter_c = Chain(
+    Dense(1358 => 18, tanh),
+    BatchNorm(18),
+	Dense(18 => 12, tanh), 
+	BatchNorm(12),
+	Dense(12 => 12, tanh), 
+	Dropout(.2),
+	Dense(12 => 12, tanh), 
+	BatchNorm(12),
+	Dense(12 => 2, σ),
+	softmax);
+			
+	target_bitter_c = Flux.onehotbatch(training_classes_bitter, [true, false])
+
+	testing_target_bitter_c = Flux.onehotbatch(testing_classes_bitter, [true, false])
+	
+	loader_bitter_c = Flux.DataLoader((nnet_training_matrix, target_bitter_c), batchsize=200, shuffle=true)
+	
+	optim_bitter_c = Flux.setup(Flux.Adam(.0001), model_bitter_c)
+
+	#validation_target = Flux.onehotbatch(validation_classes_sweet+2*validation_classes_bitter, [2,1,0])
+
+	#validation = Flux.DataLoader((nnet_validation_matrix, validation_target), batchsize=200, shuffle=true)
+	
+	losses_bitter_c = []
+	training_loss_bitter_c = []
+	epoch_losses_bitter_c = []
+	training_loss_avg_bitter_c = []
+	
+	testmode!(model_bitter_c, false)
+	for epoch in 1:30000
+	    for (x, y) in loader_bitter_c
+	        loss, grads = Flux.withgradient(model_bitter_c) do m
+	            # Evaluate model and loss inside gradient context:
+	            y_hat = m(x)
+	            Flux.mse(y_hat, y)
+				
+	        end
+	        Flux.update!(optim_bitter_c, model_bitter_c, grads[1])
+	        push!(losses_bitter_c, loss)  # batch loss logging
+			
+	    end
+
+		# loss logging by epoch
+		epoch_loss = Flux.mse(model_bitter_c(nnet_training_matrix), target_bitter_c)
+		push!(epoch_losses_bitter_c, epoch_loss)
+
+		# test set loss logging
+		y_hat_v = model_bitter_c(nnet_test_matrix)
+		error = Flux.mse(y_hat_v, testing_target_bitter_c)
+		push!(training_loss_bitter_c, error)
+
+		# test set loss rolling average
+		if epoch > 50
+			rolling_average = sum(training_loss_bitter_c[epoch-50:epoch])/50
+			push!(training_loss_avg_bitter_c, rolling_average)
+		end
+
+		# saving model snapshot at global minimum
+		#if epoch > 300 && training_loss_avg_sweet_c[end].==minimum(training_loss_avg_sweet_c)
+		# 	model_save = Flux.state(model_sweet_c)
+		#end
+	
+		# exit loop based on test set overfit
+		if epoch > 300 && 
+		(epoch-findlast(training_loss_avg_bitter_c.==minimum(training_loss_avg_bitter_c))-50) > 500
+			break
+			
+		end
+	end
+
+	#Flux.loadmodel!(model_sweet_c, model_save)
+	testmode!(model_bitter_c)
+	return model_bitter_c(nnet_test_matrix), training_loss_avg_bitter_c, epoch_losses_bitter_c
+end
+
+# ╔═╡ 97251405-a573-496e-97dc-952cc7056b30
+out_bitter, training_loss_avg_bitter_c, epoch_losses_bitter_c = nnet_bitter_c();
+
+# ╔═╡ 17f0c2b6-6ab9-470a-bf97-ce14ed16f4b4
+Plots.plot(eachindex(training_loss_avg_bitter_c), training_loss_avg_bitter_c)
+
+# ╔═╡ 06df10ba-467a-44d6-b3ef-2cc202ed1fff
+bitter_c_y_hat = permutedims(hcat([out_bitter[1,i].==maximum(out_bitter[:,i]) for i in eachindex(out_bitter[1,:])]...))';
+
+# ╔═╡ 6f588e60-30d7-4951-a1fa-f9cabb641d83
+Scoring(testing_classes_bitter, bitter_c_y_hat)
+
+# ╔═╡ 4d0e660e-489d-47a9-8670-4cbcb63d713a
+md"""
+# Decision trees
+"""
+
+# ╔═╡ 53d30f62-ffbc-45c5-a6ee-b7702b79a6c8
+begin
+	@sk_import ensemble : RandomForestClassifier
+	@sk_import ensemble : AdaBoostClassifier
+end
+
+# ╔═╡ 564e8a92-1a39-4318-acfe-75d4b52d21a1
+md"""
+## Random Forest Classifier
+"""
+
+# ╔═╡ fbeb1934-7184-4b56-90ed-13d496da6359
+begin
+	rfc_sweet = RandomForestClassifier();
+	rfc_sweet.fit(nnet_training_matrix',training_classes_sweet);
+	rf_sweet = rfc_sweet.predict(nnet_test_matrix');
+
+	Scoring(testing_classes_sweet, rf_sweet)
+end
+
+# ╔═╡ 0b821654-1779-438a-b0aa-e54f7d6b3094
+begin
+	rfc_bitter = RandomForestClassifier();
+	rfc_bitter.fit(nnet_training_matrix',training_classes_bitter);
+	rf_bitter = rfc_bitter.predict(nnet_test_matrix');
+
+	Scoring(testing_classes_bitter, rf_bitter)
+end
+
+# ╔═╡ 79cd8f69-244a-4d0d-bae9-e34cce93c741
+md"""
+## AdaBoost Classifier
+"""
+
+# ╔═╡ 280ddf4b-8f94-4f43-b7b6-98b4c02266b4
+begin
+	ab_sweet = AdaBoostClassifier()
+	ab_sweet.fit(nnet_training_matrix',training_classes_sweet)
+	ab_sweet_y_hat = ab_sweet.predict(nnet_test_matrix')
+
+	Scoring(testing_classes_sweet, ab_sweet_y_hat)
+end
+
+# ╔═╡ 8b461b4b-58c9-429a-808e-2640b800555b
+begin
+	ab_bitter = AdaBoostClassifier()
+	ab_bitter.fit(nnet_training_matrix',training_classes_bitter)
+	ab_bitter_y_hat = ab_bitter.predict(nnet_test_matrix')
+
+	Scoring(testing_classes_bitter, ab_bitter_y_hat)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -411,7 +769,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "52942d369648a8d5acd49f98658544772088c683"
+project_hash = "feffe2a56fc8f757d97e83bbe650f3e0b805a6bf"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -2439,6 +2797,7 @@ version = "1.4.1+0"
 # ╠═7156399b-0494-4d51-b625-b54666ec872b
 # ╠═ed4d8486-884e-4e92-92fb-48d1e8ed2610
 # ╠═187b80b4-1495-4f36-be95-160311f5001b
+# ╠═0c949b00-ca82-4f31-a8bc-2b53793836d6
 # ╠═5d64e523-4052-49da-b8e5-c77963d53c81
 # ╠═9716c04a-2ec7-4a28-a146-737fb33761e9
 # ╠═21669eb2-f6d2-4e2b-8b87-cd891824706f
@@ -2450,24 +2809,37 @@ version = "1.4.1+0"
 # ╠═14f49fd7-9e08-4a61-84e6-8fafbc45a7d2
 # ╠═3dc48e7c-4780-4dc1-8918-3112d66d9d6f
 # ╠═291a0ac4-8ce8-4e7d-8007-7f66aa7e19f2
-# ╠═2175fe30-6c35-4bfd-bfea-484269680b42
+# ╠═00e8bcf2-4625-4421-9197-b7f8582c09ed
 # ╠═0f25afdd-384f-46e4-8adc-2788f98d7936
 # ╠═f5c7f438-c027-402d-a23a-be5e35739a53
-# ╠═475cb28d-7fe5-4d92-8f06-091d6f8e13be
-# ╠═a5fc263d-cd3f-4d7c-939f-cdc1120b2b8f
-# ╠═89348c07-65c9-48a5-9b38-240cc9eb060b
-# ╠═8fb754f8-7fa1-4b10-8a4b-36fc5bf902c8
-# ╠═52c0caca-c4f1-4cb2-9dcb-9f7491e2465c
-# ╠═66d79222-93d4-4bfb-a6b4-f2382da4556f
-# ╠═b9277460-9d25-4c76-bc58-d2a4ec2b3bc5
-# ╠═a854e0bb-e87b-4678-8217-70331f65f55b
-# ╠═0c806cd6-7042-4a31-8dbe-360736417624
-# ╠═cd56401d-671a-431c-8fff-33a3a545a7cf
-# ╠═50e168f3-10fe-440f-a662-1cbcfc802629
-# ╠═1779b1b5-994d-4b8e-b586-c304c8113363
-# ╠═f5253510-8c79-4f7b-ac65-5af20a51005b
-# ╠═593fe657-98ab-423c-bc27-396cfb33ea45
-# ╠═8c6d2afa-e78a-4566-b86e-4f717454b57e
-# ╠═e815b2a4-d99a-4c9c-8b39-5bfe21cf557e
+# ╠═f0412864-798b-4512-906c-e556813bf773
+# ╠═db0f1e11-6df2-4083-8d0f-db9797de6bba
+# ╠═9cc4b623-c0fa-4603-9308-47e15c0d4084
+# ╠═968bcb20-8937-4306-a14a-b5877b1b06d2
+# ╠═80691e93-d397-4efa-bea1-c97316e681e6
+# ╠═75eb906b-059d-4521-9d3f-a1eb97cb92af
+# ╠═e6b0558b-58b4-4151-9885-8f6ba6894c3e
+# ╠═d935f630-0e80-453e-9e90-feb54f8de122
+# ╠═0d950e3f-c220-4f8e-906d-0c9204a1c705
+# ╟─0a4391b2-fbb7-4046-814c-42a4a7893877
+# ╠═20e20031-ee7c-4324-b411-c974b2bfc5f8
+# ╠═b0243fea-02a2-48a7-8f04-436d0bf5f212
+# ╠═e77c3fb4-b15b-48e3-9207-7867f724764b
+# ╠═a04dde28-4fc3-4630-8dbf-1fa7417df298
+# ╠═365270e9-c043-4752-b56d-aa141f0bd297
+# ╟─c319887c-436c-42c1-b923-7c7e813f9cd6
+# ╠═a3575c2e-e7a0-4d10-91ac-180a24084010
+# ╠═97251405-a573-496e-97dc-952cc7056b30
+# ╠═17f0c2b6-6ab9-470a-bf97-ce14ed16f4b4
+# ╠═06df10ba-467a-44d6-b3ef-2cc202ed1fff
+# ╠═6f588e60-30d7-4951-a1fa-f9cabb641d83
+# ╟─4d0e660e-489d-47a9-8670-4cbcb63d713a
+# ╠═53d30f62-ffbc-45c5-a6ee-b7702b79a6c8
+# ╠═564e8a92-1a39-4318-acfe-75d4b52d21a1
+# ╠═fbeb1934-7184-4b56-90ed-13d496da6359
+# ╠═0b821654-1779-438a-b0aa-e54f7d6b3094
+# ╠═79cd8f69-244a-4d0d-bae9-e34cce93c741
+# ╠═280ddf4b-8f94-4f43-b7b6-98b4c02266b4
+# ╠═8b461b4b-58c9-429a-808e-2640b800555b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
