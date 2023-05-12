@@ -10,6 +10,12 @@ begin
 	TableOfContents(title="Bittersweet SVM")
 end
 
+# ╔═╡ 422d6864-d70d-4293-ab5d-ead3200b1e7b
+begin
+	using CSV, MolecularGraph, MetaGraphs
+	import MolecularGraph:removehydrogens
+end
+
 # ╔═╡ 9a3b5873-ead9-48ed-a007-480254492d99
 md"""
 # Load data
@@ -369,7 +375,7 @@ begin
 	
 	loader = Flux.DataLoader((nnet_training_matrix, target), batchsize=200, shuffle=true)
 	
-	optim = Flux.setup(Flux.Adam(.0001), model)
+	optim = Flux.setup(Flux.Adam(.00001), model)
 
 	#validation_target = Flux.onehotbatch(validation_classes_sweet+2*validation_classes_bitter, [2,1,0])
 
@@ -509,7 +515,7 @@ function nnet_sweet_c()
 	
 	loader_sweet_c = Flux.DataLoader((nnet_training_matrix, target_sweet_c), batchsize=200, shuffle=true)
 	
-	optim_sweet_c = Flux.setup(Flux.Adam(.0001), model_sweet_c)
+	optim_sweet_c = Flux.setup(Flux.Adam(.00001), model_sweet_c)
 
 	#validation_target = Flux.onehotbatch(validation_classes_sweet+2*validation_classes_bitter, [2,1,0])
 
@@ -731,15 +737,81 @@ begin
 	Scoring(testing_classes_bitter, ab_bitter_y_hat)
 end
 
+# ╔═╡ 0a39ff49-2661-4fd0-ae15-79df01961de3
+md"""
+# Test sets
+"""
+
+# ╔═╡ bc2dd286-82ab-4f72-8fa4-728eeb595609
+begin
+	test_set_combined = Base.download("https://raw.githubusercontent.com/cosylabiiit/bittersweet/master/data/bitter-test.tsv")
+	BitterSweet_test_sets = CSV.read(test_set_combined, DataFrame)
+	
+	errored_smiles_bittertest = []
+	df_new_bittertest = DataFrame()
+	allowed_atoms_bittertest = ['C','O','N','c','S','B','P','F','o','I','K']
+	disallowed_features_bittertest = ['.','+']
+	size_min_bittertest = 4
+	size_max_bittertest = 30
+	for z ∈ 1:length(BitterSweet_test_sets[!,5])
+		smiles_string = BitterSweet_test_sets[z,5]
+		if size_min_bittertest <= count(n ∈ allowed_atoms_bittertest for n ∈ smiles_string) <= size_max_bittertest && all([i ∉ disallowed_features_bittertest for i ∈ smiles_string])
+			try 
+				mol = smilestomol(smiles_string)
+				push!(df_new_bittertest,BitterSweet_test_sets[z,:], promote=true)
+			catch e
+				push!(errored_smiles_bittertest, [z,smiles_string])
+			end
+		end
+	end
+end
+
+# ╔═╡ c02aa62b-6ba0-4b71-8cb8-61964d4910f5
+begin
+	phyto_dictionary = df_new_bittertest[[occursin("Phyto",df_new_bittertest[i,3]) for i ∈ eachindex(df_new_bittertest[:,3])],:]
+
+	bitter_new = df_new_bittertest[[occursin("Bitter-New",df_new_bittertest[i,3]) for i ∈ eachindex(df_new_bittertest[:,3])],:]
+
+	unimi = df_new_bittertest[[occursin("UNIMI",df_new_bittertest[i,3]) for i ∈ eachindex(df_new_bittertest[:,3])],:]
+end
+
+# ╔═╡ e5d6f4ff-ceb3-4caa-93f9-95e35903587d
+@load "C:\\Users\\dcase\\GraphletKernel\\Metagraphs.jld2" metagraphs
+
+# ╔═╡ 55d6691b-6bc2-4cbc-a476-1e694953e0db
+function graphs_to_gram_vectors(smiles,gram_graph_vector; n=4)
+	new_graphs = [MetaGraph(MolecularGraph.removehydrogens(smilestomol(i))) for i ∈ smiles]
+	return_matrix = zeros(length(smiles),length(gram_graph_vector))
+	for i ∈ eachindex(new_graphs)
+		Gᵢ = new_graphs[i]
+		k_ii = connected_graphlet(Gᵢ,Gᵢ, n=n)
+		for j ∈ eachindex(gram_graph_vector)
+			Gⱼ = gram_graph_vector[j]
+			k_jj = connected_graphlet(Gⱼ,Gⱼ, n=n)
+			k_ij = connected_graphlet(Gᵢ,Gⱼ, n=n)
+			return_matrix[i,j] = k_ij/(k_ii*k_jj)^.5
+		end
+	end
+	return return_matrix
+end
+
+# ╔═╡ 4d165ece-51e6-4186-8edc-5a3f1fe9e177
+begin
+	phyto_dictionary_mx = graphs_to_gram_vectors(phyto_dictionary[1:3,5],metagraphs[1:3]; n=2:5)
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
@@ -750,11 +822,14 @@ ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
+CSV = "~0.10.10"
 CairoMakie = "~0.10.4"
 DataFrames = "~1.5.0"
 Flux = "~0.13.15"
 GraphMakie = "~0.5.3"
 JLD2 = "~0.4.31"
+MetaGraphs = "~0.7.2"
+MolecularGraph = "~0.14.1"
 Plots = "~1.38.10"
 PlutoUI = "~0.7.50"
 ProfileCanvas = "~0.1.6"
@@ -769,7 +844,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "feffe2a56fc8f757d97e83bbe650f3e0b805a6bf"
+project_hash = "5a8dcc3a101b7b4069f22704fc769c17adcc8d8d"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -886,6 +961,12 @@ version = "0.4.2"
 
 [[deps.CRC32c]]
 uuid = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
+
+[[deps.CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
+git-tree-sha1 = "ed28c86cbde3dc3f53cf76643c2e9bc11d56acc7"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.10"
 
 [[deps.CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CUDA_Driver_jll", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "CompilerSupportLibraries_jll", "ExprTools", "GPUArrays", "GPUCompiler", "KernelAbstractions", "LLVM", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "Preferences", "Printf", "Random", "Random123", "RandomNumbers", "Reexport", "Requires", "SparseArrays", "SpecialFunctions", "UnsafeAtomicsLLVM"]
@@ -1194,6 +1275,12 @@ deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "7be5f99f7d15578798f338f5433b6c432ea8037b"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 version = "1.16.0"
+
+[[deps.FilePathsBase]]
+deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
+git-tree-sha1 = "e27c4ebe80e8699540f2d6c805cc12203b614f12"
+uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
+version = "0.9.20"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -1796,6 +1883,12 @@ git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 version = "0.3.2"
 
+[[deps.MetaGraphs]]
+deps = ["Graphs", "JLD2", "Random"]
+git-tree-sha1 = "1130dbe1d5276cb656f6e1094ce97466ed700e5a"
+uuid = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+version = "0.7.2"
+
 [[deps.MicroCollections]]
 deps = ["BangBang", "InitialValues", "Setfield"]
 git-tree-sha1 = "629afd7d10dbc6935ec59b32daeb33bc4460a42e"
@@ -1816,6 +1909,12 @@ version = "1.1.0"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
+
+[[deps.MolecularGraph]]
+deps = ["Colors", "Dates", "DelimitedFiles", "GeometryBasics", "Graphs", "JSON", "LinearAlgebra", "MakieCore", "Printf", "Statistics", "YAML", "coordgenlibs_jll", "libinchi_jll"]
+git-tree-sha1 = "3b664c39f39f6ed1b0903e77cc16bdd6a7b6f138"
+uuid = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
+version = "0.14.1"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -2382,6 +2481,12 @@ git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 version = "1.3.0"
 
+[[deps.StringEncodings]]
+deps = ["Libiconv_jll"]
+git-tree-sha1 = "33c0da881af3248dafefb939a21694b97cfece76"
+uuid = "69024149-9ee7-55f6-a4c4-859efe599b68"
+version = "0.3.6"
+
 [[deps.StringManipulation]]
 git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
 uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
@@ -2524,11 +2629,22 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
+[[deps.WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.2"
+
 [[deps.WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
+
+[[deps.WorkerUtilities]]
+git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
+uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
+version = "1.6.1"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -2668,6 +2784,12 @@ git-tree-sha1 = "79c31e7844f6ecf779705fbc12146eb190b7d845"
 uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.4.0+3"
 
+[[deps.YAML]]
+deps = ["Base64", "Dates", "Printf", "StringEncodings"]
+git-tree-sha1 = "dbc7f1c0012a69486af79c8bcdb31be820670ba2"
+uuid = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+version = "0.4.8"
+
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
@@ -2690,6 +2812,12 @@ deps = ["ChainRulesCore", "MacroTools"]
 git-tree-sha1 = "977aed5d006b840e2e40c0b48984f7463109046d"
 uuid = "700de1a5-db45-46bc-99cf-38207098b444"
 version = "0.2.3"
+
+[[deps.coordgenlibs_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "8a0fdb746dfc75758d0abea3196f5edfcbbebd79"
+uuid = "f6050b86-aaaf-512f-8549-0afff1b4d57f"
+version = "3.0.1+0"
 
 [[deps.cuDNN]]
 deps = ["CEnum", "CUDA", "CUDNN_jll"]
@@ -2731,6 +2859,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
 uuid = "f638f0a6-7fb0-5443-88ba-1cc74229b280"
 version = "2.0.2+0"
+
+[[deps.libinchi_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "034ee07d3b387a4ca1a153a43a0c46549b6749ba"
+uuid = "172afb32-8f1c-513b-968f-184fcd77af72"
+version = "1.5.1+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -2841,5 +2975,12 @@ version = "1.4.1+0"
 # ╠═79cd8f69-244a-4d0d-bae9-e34cce93c741
 # ╠═280ddf4b-8f94-4f43-b7b6-98b4c02266b4
 # ╠═8b461b4b-58c9-429a-808e-2640b800555b
+# ╠═0a39ff49-2661-4fd0-ae15-79df01961de3
+# ╠═422d6864-d70d-4293-ab5d-ead3200b1e7b
+# ╠═bc2dd286-82ab-4f72-8fa4-728eeb595609
+# ╠═c02aa62b-6ba0-4b71-8cb8-61964d4910f5
+# ╠═e5d6f4ff-ceb3-4caa-93f9-95e35903587d
+# ╠═55d6691b-6bc2-4cbc-a476-1e694953e0db
+# ╠═4d165ece-51e6-4186-8edc-5a3f1fe9e177
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
