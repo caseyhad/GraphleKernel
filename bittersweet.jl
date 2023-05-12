@@ -504,7 +504,7 @@ begin
 	disallowed_features_bittertest = ['.','+']
 	for z ∈ 1:length(SVM_test_set[!,5])
 		smiles_string = SVM_test_set[z,5]
-		if size_min <= count(n ∈ allowed_atoms for n ∈ smiles_string) <= size_max && all([i ∉ disallowed_features for i ∈ smiles_string])
+		if size_min <= count(n ∈ allowed_atoms_bittertest for n ∈ smiles_string) <= size_max && all([i ∉ disallowed_features_bittertest for i ∈ smiles_string])
 			try 
 				mol = smilestomol(smiles_string)
 				push!(df_new_bittertest,SVM_test_set[z,:], promote=true)
