@@ -283,34 +283,8 @@ Plots.scatter(y[:,2], y[:,1], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5)
 # ╔═╡ 36fd7860-ba69-4837-ac79-a76f5292b7a6
 bc
 
-# ╔═╡ b40b764b-47d3-4166-934e-2fe9fd66e8e5
-# ╠═╡ disabled = true
-#=╠═╡
-zz = Degree^-1*bc
-  ╠═╡ =#
-
 # ╔═╡ d18455bf-cbaa-4309-82c6-a1dc5afa6b4a
 t = 1
-
-# ╔═╡ cbf6e190-1d70-45c2-8815-357a883e4746
-#=╠═╡
-res = diffusion_map(zz^t,2)
-  ╠═╡ =#
-
-# ╔═╡ 4e0f7f2d-8f5b-4dcc-a315-daa8f1a68296
-#=╠═╡
-res_pca = pca(zz,2)
-  ╠═╡ =#
-
-# ╔═╡ 94e44e50-64e7-4e6a-bcf6-0bb70d3d9ea5
-#=╠═╡
-Plots.scatter(res[:,1], res[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5,  size = (670, 600), lims = [1.05*minimum(union(res[:,1],res[:,2])),1.05*maximum(union(res[:,1],res[:,2]))])
-  ╠═╡ =#
-
-# ╔═╡ 856acbf0-8e76-406f-80fa-51885c2951ab
-#=╠═╡
-Plots.scatter(res_pca[:,1], res_pca[:,2], color = Colors(bc,x_p_1,df_c)[:,2], ms=2, ma=0.5, lims = [1.05*minimum(union(res_pca[:,1],res_pca[:,2])),1.05*maximum(union(res_pca[:,1],res_pca[:,2]))], size = (670, 600))
-  ╠═╡ =#
 
 # ╔═╡ 10bca3fb-6968-45bc-8b5c-ecc83e039e91
 md"""
@@ -724,7 +698,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "eb58b8904caef6c76276f1a5ba4f8d94452623d3"
+project_hash = "8fa6a7949b5068f7d925c06923fd000083b1fcbc"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
