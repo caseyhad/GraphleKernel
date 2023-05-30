@@ -895,6 +895,17 @@ function graphs_to_gram_vectors(smiles,gram_graph_vector; n=4)
 	return return_matrix
 end
 
+# ╔═╡ fc0d8099-0871-4ff9-bb58-b237e635c287
+begin
+	@load "C:\\Users\\dcase\\GraphletKernel\\phyto_dictionary_mx_30.jld2" phyto_dictionary_mx 
+	@load "C:\\Users\\dcase\\GraphletKernel\\unimi_mx_30.jld2" unimi_mx
+	@load "C:\\Users\\dcase\\GraphletKernel\\bitter_new_mx_30.jld2" bitter_new_mx
+
+	phyto_dictionary_mx = phyto_dictionary_mx[:,removed_molecules_bitvector]
+	unimi_mx = unimi_mx[:,removed_molecules_bitvector]
+	bitter_new_mx = bitter_new_mx[:,removed_molecules_bitvector]
+end
+
 # ╔═╡ c559248a-cf56-4fa1-a8d7-e58b6797cb82
 begin
 	phyto_bitter_bitvector = [i=="Bitter" for i in phyto_dictionary[:,2]]
@@ -1160,29 +1171,6 @@ std.(results[i,:] for i ∈ 2:2:12)
 
 # ╔═╡ 42ee1ede-95e7-484b-8670-5618e9445de6
 std.(results[i,:] for i ∈ 1:2:12)
-
-# ╔═╡ 4d165ece-51e6-4186-8edc-5a3f1fe9e177
-# ╠═╡ disabled = true
-#=╠═╡
-begin
-	phyto_dictionary_mx = graphs_to_gram_vectors(phyto_dictionary[:,5],metagraphs; n=2:5)
-
-	unimi_mx = graphs_to_gram_vectors(unimi[:,5],metagraphs; n=2:5)
-
-	bitter_new_mx = graphs_to_gram_vectors(bitter_new[:,5],metagraphs; n=2:5)
-end
-  ╠═╡ =#
-
-# ╔═╡ fc0d8099-0871-4ff9-bb58-b237e635c287
-begin
-	@load "C:\\Users\\dcase\\GraphletKernel\\phyto_dictionary_mx_30.jld2" phyto_dictionary_mx 
-	@load "C:\\Users\\dcase\\GraphletKernel\\unimi_mx_30.jld2" unimi_mx
-	@load "C:\\Users\\dcase\\GraphletKernel\\bitter_new_mx_30.jld2" bitter_new_mx
-
-	phyto_dictionary_mx = phyto_dictionary_mx[:,removed_molecules_bitvector]
-	unimi_mx = unimi_mx[:,removed_molecules_bitvector]
-	bitter_new_mx = bitter_new_mx[:,removed_molecules_bitvector]
-end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """

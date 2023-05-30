@@ -1,0 +1,142 @@
+### A Pluto.jl notebook ###
+# v0.19.25
+
+using Markdown
+using InteractiveUtils
+
+# ╔═╡ 291df830-ff06-11ed-137b-7bb270c501bb
+using TensorCore, LinearAlgebra
+
+# ╔═╡ 05648cf2-669f-46c5-8c76-3912073a4269
+begin
+	A₁ = Array{Float64}(undef, 3,3,2)
+	A₁[:,:,1] = [0 1 0
+				 1 0 0
+				 0 0 0]
+	
+	A₁[:,:,2] = [0 0 1
+				 0 0 1
+				 1 1 0]
+
+	A₂ = Array{Float64}(undef, 4,4,2)
+	A₂[:,:,1] = [0 0 1 1
+				 0 0 0 1
+				 1 0 0 0
+				 1 1 0 0]
+	
+	A₂[:,:,2] = [0 1 0 0
+				 1 0 1 0
+				 0 1 0 0
+				 0 0 0 0]
+end
+
+# ╔═╡ 23dfb60d-ed83-4880-bee6-32ad490c0276
+function edge_array_exp(A,exponent)
+	depth = size(A)[3]
+	A_return = zeros(size(A))
+	for i = 1:depth
+		A_return[:,:,i] = A[:,:,i]^exponent
+	end
+	return A_return
+end
+
+# ╔═╡ 8135fe28-5df6-45d5-ade0-e1e8afef5e9b
+edge_array_exp(A₁,4)
+
+# ╔═╡ 88d008ca-f644-42ab-a893-e54dcfddfae5
+function kron_edges(A,B)
+	m = size(A)[1]
+	n = size(A)[2]
+	p = size(B)[1]
+	q = size(B)[2]
+	prod = zeros(m*p,n*q)
+	for i ∈ 1:m*p
+		for j ∈ 1:n*q
+			prod[i,j] = dot(
+				A[
+					Int(
+						ceil(i/p)
+					),
+					Int(
+						ceil(j/q)
+					),
+					:],
+				B[
+					((i-1)%p+1),
+					((j-1)%q+1),
+					:]
+			)
+		end
+	end
+	return prod
+end
+			
+			
+					
+
+# ╔═╡ bbe47bc3-525f-40db-a4b9-784d6c9b9ed0
+kron_edges(edge_array_exp(A₁,4),edge_array_exp(A₂,4))
+
+# ╔═╡ f7c67fca-8fe0-45cf-86dc-af604c53bbd7
+ceil(3/5)
+
+# ╔═╡ 00000000-0000-0000-0000-000000000001
+PLUTO_PROJECT_TOML_CONTENTS = """
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+TensorCore = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
+
+[compat]
+TensorCore = "~0.1.1"
+"""
+
+# ╔═╡ 00000000-0000-0000-0000-000000000002
+PLUTO_MANIFEST_TOML_CONTENTS = """
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.8.2"
+manifest_format = "2.0"
+project_hash = "bfa42bff066dd1a90910e7f5b8ed5ee6c1c47179"
+
+[[deps.Artifacts]]
+uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+
+[[deps.CompilerSupportLibraries_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.2+0"
+
+[[deps.Libdl]]
+uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+
+[[deps.LinearAlgebra]]
+deps = ["Libdl", "libblastrampoline_jll"]
+uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[[deps.OpenBLAS_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
+uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.20+0"
+
+[[deps.TensorCore]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "1feb45f88d133a655e001435632f019a9a1bcdb6"
+uuid = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
+version = "0.1.1"
+
+[[deps.libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "5.1.1+0"
+"""
+
+# ╔═╡ Cell order:
+# ╠═291df830-ff06-11ed-137b-7bb270c501bb
+# ╠═05648cf2-669f-46c5-8c76-3912073a4269
+# ╠═23dfb60d-ed83-4880-bee6-32ad490c0276
+# ╠═8135fe28-5df6-45d5-ade0-e1e8afef5e9b
+# ╠═88d008ca-f644-42ab-a893-e54dcfddfae5
+# ╠═bbe47bc3-525f-40db-a4b9-784d6c9b9ed0
+# ╠═f7c67fca-8fe0-45cf-86dc-af604c53bbd7
+# ╟─00000000-0000-0000-0000-000000000001
+# ╟─00000000-0000-0000-0000-000000000002
