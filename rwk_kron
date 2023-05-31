@@ -4,121 +4,104 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 291df830-ff06-11ed-137b-7bb270c501bb
-using TensorCore, LinearAlgebra, MolecularGraphKernels, MolecularGraph
+# ╔═╡ a0936f30-ff65-11ed-352c-c795c803f250
+using MolecularGraph, MolecularGraphKernels, Test, MetaGraphs, Graphs, ProfileCanvas, PlutoUI, BenchmarkTools
 
-# ╔═╡ 05648cf2-669f-46c5-8c76-3912073a4269
+# ╔═╡ 7ea77cb0-7037-4a24-9799-1e94fb2219aa
 begin
-	A₁ = Array{Float64}(undef, 3,3,2)
-	A₁[:,:,1] = [0 1 0
-				 1 0 0
-				 0 0 0]
-	
-	A₁[:,:,2] = [0 0 1
-				 0 0 1
-				 1 1 0]
+        #g₁, g₂ = smilestomol.(["NC=O", "CN(C=O)C=O"])
+        #l = 4
+        #x = random_walk(GraphMatrix{Direct}(g₁, g₂); l=l)
+        #@test x == 74
+        #@test x == random_walk(ProductGraph{Direct}(g₁, g₂); l=l)
+        #@test x == random_walk(g₁, g₂; l=l)
 
-	A₂ = Array{Float64}(undef, 4,4,2)
-	A₂[:,:,1] = [0 0 1 1
-				 0 0 0 1
-				 1 0 0 0
-				 1 1 0 0]
-	
-	A₂[:,:,2] = [0 1 0 0
-				 1 0 1 0
-				 0 1 0 0
-				 0 0 0 0]
-
-	X₁ = [1 0;
-		  0 1;
-	 	  1 0]
-
-	X₂ = [1 0;
-		  1 0;
-	 	  0 1;
-		  0 1]
+        g₁ = MetaGraph(removehydrogens(smilestomol("C[C@H]1[C@H](O)[C@@H](O)[C@@H](O)[C@@H](O1)O[C@H](C2=O)[C@H](c(c3)ccc(O)c3O)Oc(c24)cc(O)cc4O")))
+        g₂ = MetaGraph(removehydrogens(smilestomol("O[C@@H](O1)[C@H](O)[C@@H](O)[C@H](O)[C@H]1CO[C@@H](O2)[C@H](O)[C@@H](O)[C@@H](O)[C@H]2CO")))
+        dpg = ProductGraph{Direct}(g₁, g₂)
 end
 
-# ╔═╡ 48d66367-9587-4831-8e1b-dbfb3d164a78
-S = X₁*X₂'
+# ╔═╡ 8e3a18f6-60b9-4515-a7cc-70414259eeef
+sum(GraphMatrix(dpg))
 
-# ╔═╡ 0f203a22-b097-4470-ba0c-82584a3bc49f
-s = S[:]
-
-# ╔═╡ 23dfb60d-ed83-4880-bee6-32ad490c0276
-function edge_array_exp(A,exponent)
-	depth = size(A)[3]
-	A_return = zeros(size(A))
-	for i = 1:depth
-		A_return[:,:,i] = A[:,:,i]^exponent
-	end
-	return A_return
-end
-
-# ╔═╡ 88d008ca-f644-42ab-a893-e54dcfddfae5
-function kron_edges(A,B)
-	m = size(A)[1]
-	n = size(A)[2]
-	p = size(B)[1]
-	q = size(B)[2]
-	prod = zeros(m*p,n*q)
-	for i ∈ 1:m*p
-		for j ∈ 1:n*q
-			prod[i,j] = dot(
-				A[
-					Int(
-						ceil(i/p)
-					),
-					Int(
-						ceil(j/q)
-					),
-					:],
-				B[
-					((i-1)%p+1),
-					((j-1)%q+1),
-					:]
-			)
+# ╔═╡ 97888b1f-36bc-4731-b261-b863bb7e7e03
+function split_adjacency(g,edge_labels)
+	adj_layers = zeros(size(g)[1],size(g)[1], length(edge_labels))
+	for l ∈ eachindex(edge_labels)
+		for edge ∈ edges(g)
+			if get_prop(g, edge, :label) == edge_labels[l]
+				adj_layers[src(edge),dst(edge),l] = 1.0
+			end
 		end
+		adj_layers[:,:,l] = adj_layers[:,:,l]+adj_layers[:,:,l]'
 	end
-	return prod
+	return adj_layers
 end
-			
-			
-					
 
-# ╔═╡ 8ea62cdc-f2a9-4459-bfdd-3372293541bf
-kron_edges(A₁,A₂)
+# ╔═╡ 376b18e1-8b9f-4103-a5c9-78e1ea85c082
+function rwk_kron(g₁,g₂;l=1)
+	
+	edge_labels = unique(
+		[get_prop(g₁, edge, :label) for edge ∈ edges(g₁)]
+		∪
+		[get_prop(g₂, edge, :label) for edge ∈ edges(g₂)]
+	)
+	
+	vertex_labels = unique(
+		[get_prop(g₁, v, :label) for v ∈ vertices(g₁)]
+		∪
+		[get_prop(g₂, v, :label) for v ∈ vertices(g₂)]
+	)
+	
+	A₁ = split_adjacency(g₁,edge_labels)
+	A₂ = split_adjacency(g₂,edge_labels)
+	
+	X₁ = zeros(size(g₁)[1],length(vertex_labels))
+	X₂ = zeros(size(g₂)[1],length(vertex_labels))
+	
+	for i ∈ eachindex(vertices(g₁))
+		X₁[i,:] = vertex_labels.==get_prop(g₁, i, :label)
+	end
+	
+	for i ∈ eachindex(vertices(g₂))
+		X₂[i,:] = vertex_labels.==get_prop(g₂, i, :label)
+	end
+	
+	S = X₁*X₂'
+	s = S'[:]
 
-# ╔═╡ 6f0e4c44-0ce1-476c-abe5-f2824150eb42
-kron_edges(edge_array_exp(A₁,4),edge_array_exp(A₂,4))
+	
+	return sum((s*s'.*sum([kron(A₁[:,:,i],A₂[:,:,i]) for i ∈ eachindex(edge_labels)]))^l)
+	
+end
+	
 
-# ╔═╡ 45281fa6-7ef5-42a3-8aa0-4fb22c11fbc0
-A = A₁[:,:,1]+A₁[:,:,2]
+# ╔═╡ 2f3098ae-a36e-4d90-8241-32fe70259cb6
+rwk_kron(g₁,g₂;l=5)
 
-# ╔═╡ e14d8de0-c6e2-47cb-a12f-34fca4410550
-B = A₂[:,:,1]+A₂[:,:,2]
-
-# ╔═╡ a29f3046-c542-41ea-b3b3-e6293d42daff
-(kron(A,B)^4).*kron_edges(A₁,A₂)
-
-# ╔═╡ dd8b1e96-b4a7-4645-b34a-0909986f7e3a
-(kron(A,B).*kron_edges(A₁,A₂))^4
-
-# ╔═╡ 24cd324c-090b-4e2c-8e5e-b17efb583143
-MolecularGraphKernels.ProductGraph()
+# ╔═╡ 3370544e-76fb-4b15-b59a-1cae00d2e514
+random_walk(ProductGraph{Direct}(g₁, g₂); l=5)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 MolecularGraph = "6c89ec66-9cd8-5372-9f91-fabc50dd27fd"
 MolecularGraphKernels = "bf3818bd-b6bb-4954-8baa-32c32282e633"
-TensorCore = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
+BenchmarkTools = "~1.3.2"
+Graphs = "~1.8.0"
+MetaGraphs = "~0.7.2"
 MolecularGraph = "~0.13.0"
 MolecularGraphKernels = "~0.9.0"
-TensorCore = "~0.1.1"
+PlutoUI = "~0.7.51"
+ProfileCanvas = "~0.1.6"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -127,7 +110,13 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "c320ff79b76a18f2207649b6bf711195a52c84f1"
+project_hash = "429c17c50f81145b05954043dc8b6ab6f2959340"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.1.4"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -144,6 +133,12 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "d9a9701b899b30332bbcb3e1679c41cce81fb0e8"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.3.2"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -312,6 +307,24 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.4"
+
+[[deps.HypertextLiteral]]
+deps = ["Tricks"]
+git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.4"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+version = "0.2.3"
+
 [[deps.Inflate]]
 git-tree-sha1 = "5cd07aab533df5170988219191dfad0519391428"
 uuid = "d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9"
@@ -420,6 +433,11 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.MIMEs]]
+git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
+uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
+version = "0.1.4"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -542,6 +560,12 @@ deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markd
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 version = "1.8.0"
 
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "b478a748be27bd2f2c73a7690da219d0844db305"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.51"
+
 [[deps.PrecompileSignatures]]
 git-tree-sha1 = "18ef344185f25ee9d51d80e179f8dad33dc48eb1"
 uuid = "91cefc8d-f054-46dc-8f8c-26e11d7c5411"
@@ -562,6 +586,16 @@ version = "1.4.0"
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.Profile]]
+deps = ["Printf"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+
+[[deps.ProfileCanvas]]
+deps = ["Base64", "JSON", "Pkg", "Profile", "REPL"]
+git-tree-sha1 = "e42571ce9a614c2fbebcaa8aab23bbf8865c624e"
+uuid = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
+version = "0.1.6"
 
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
@@ -660,12 +694,6 @@ deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 version = "1.10.1"
 
-[[deps.TensorCore]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "1feb45f88d133a655e001435632f019a9a1bcdb6"
-uuid = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
-version = "0.1.1"
-
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
@@ -675,6 +703,16 @@ deps = ["Random", "Test"]
 git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.9.13"
+
+[[deps.Tricks]]
+git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.7"
+
+[[deps.URIs]]
+git-tree-sha1 = "074f993b0ca030848b897beff716d93aca60f06a"
+uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
+version = "1.4.2"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -807,18 +845,12 @@ version = "17.4.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═291df830-ff06-11ed-137b-7bb270c501bb
-# ╠═05648cf2-669f-46c5-8c76-3912073a4269
-# ╠═48d66367-9587-4831-8e1b-dbfb3d164a78
-# ╠═0f203a22-b097-4470-ba0c-82584a3bc49f
-# ╠═23dfb60d-ed83-4880-bee6-32ad490c0276
-# ╠═88d008ca-f644-42ab-a893-e54dcfddfae5
-# ╠═8ea62cdc-f2a9-4459-bfdd-3372293541bf
-# ╠═6f0e4c44-0ce1-476c-abe5-f2824150eb42
-# ╠═45281fa6-7ef5-42a3-8aa0-4fb22c11fbc0
-# ╠═e14d8de0-c6e2-47cb-a12f-34fca4410550
-# ╠═a29f3046-c542-41ea-b3b3-e6293d42daff
-# ╠═dd8b1e96-b4a7-4645-b34a-0909986f7e3a
-# ╠═24cd324c-090b-4e2c-8e5e-b17efb583143
+# ╟─a0936f30-ff65-11ed-352c-c795c803f250
+# ╠═7ea77cb0-7037-4a24-9799-1e94fb2219aa
+# ╠═8e3a18f6-60b9-4515-a7cc-70414259eeef
+# ╠═97888b1f-36bc-4731-b261-b863bb7e7e03
+# ╠═376b18e1-8b9f-4103-a5c9-78e1ea85c082
+# ╠═2f3098ae-a36e-4d90-8241-32fe70259cb6
+# ╠═3370544e-76fb-4b15-b59a-1cae00d2e514
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
