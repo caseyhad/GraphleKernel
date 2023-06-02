@@ -21,9 +21,6 @@ begin
         dpg = ProductGraph{Direct}(g₁, g₂)
 end
 
-# ╔═╡ 8e3a18f6-60b9-4515-a7cc-70414259eeef
-sum(GraphMatrix(dpg))
-
 # ╔═╡ 97888b1f-36bc-4731-b261-b863bb7e7e03
 function split_adjacency(g,edge_labels)
 	adj_layers = zeros(size(g)[1],size(g)[1], length(edge_labels))
@@ -66,12 +63,9 @@ function rwk_kron(g₁,g₂;l=1)
 	for i ∈ eachindex(vertices(g₂))
 		X₂[i,:] = vertex_labels.==get_prop(g₂, i, :label)
 	end
-	
-	S = X₁*X₂'
-	s = S'[:]
 
-	
-	return sum((s*s'.*sum([kron(A₁[:,:,i],A₂[:,:,i]) for i ∈ eachindex(edge_labels)]))^l)
+
+	return sum((vec(X₁*X₂')*vec(X₁*X₂')'.*sum([kron(A₂[:,:,i],A₁[:,:,i]) for i ∈ eachindex(edge_labels)]))^l)
 	
 end
 	
@@ -847,7 +841,6 @@ version = "17.4.0+0"
 # ╔═╡ Cell order:
 # ╟─a0936f30-ff65-11ed-352c-c795c803f250
 # ╠═7ea77cb0-7037-4a24-9799-1e94fb2219aa
-# ╠═8e3a18f6-60b9-4515-a7cc-70414259eeef
 # ╠═97888b1f-36bc-4731-b261-b863bb7e7e03
 # ╠═376b18e1-8b9f-4103-a5c9-78e1ea85c082
 # ╠═2f3098ae-a36e-4d90-8241-32fe70259cb6
