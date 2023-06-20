@@ -13,7 +13,7 @@ end
 # ╔═╡ c6b09b10-f9d0-11ed-05f3-37d4a103076e
 md"""
 # Intro
-Graph kernels are functions that provide a similarity metric between two input graphs. A kernel fucntion takes two inputs, maps them to an arbitrary dimentional space, then returns the inner product of the two mappings. Kernel functions have two defining traits, a kernel function between inputs X and Y is:
+Graph kernels are functions that provide a similarity metric between two imput graphs. A kernel fucntion takes two inputs, maps them to an arbitrary dimentional space, then returns the inner product of the two mappings. Kernel functions have two defining traits, a kernel function between inputs X and Y is:
 
 * Symmetric, ie. $K(X,Y) = K(Y,X)$
 * Positive semi-definite, ie. $K(X,Y) \ge 0$
@@ -2099,6 +2099,7 @@ version = "3.5.0+0"
 # ╠═bc90dc25-2e50-46bc-8859-43b8b1f7d44f
 # ╟─0ced821b-e1f6-4ab9-8978-561c52ff5621
 # ╠═9df03895-540e-4317-b785-4073c473a0f1
+# ╠═006f8d85-b9c8-4df5-a4f7-77e52b230a84
 # ╟─a17dde92-e7a8-4bae-97e0-5e0828c95c0d
 # ╟─60dcfacc-948b-4dac-ada1-bb23be69acce
 # ╟─31d4be31-4624-441d-9fdd-81048832ac0f
