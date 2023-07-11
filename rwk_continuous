@@ -50,27 +50,39 @@ end
 # ╔═╡ 97888b1f-36bc-4731-b261-b863bb7e7e03
 begin
 	function split_adjacency(g,edge_labels)
-		adj_layers = zeros(size(g)[1],size(g)[1], length(edge_labels))
+		nv = size(g)[1]
+		nt = length(edge_labels)
+		adj_layers = zeros(nv, nv, nt+1)
+		adj_layers[:,:,nt+1] = ones(nv,nv).-Matrix{Float32}(I, nv, nv)
 		for l ∈ eachindex(edge_labels)
 			for edge ∈ edges(g)
 				if get_prop(g, edge, :label) == edge_labels[l]
 					adj_layers[src(edge),dst(edge),l] = 1.0
+					adj_layers[src(edge),dst(edge),nt+1] = 0
 				end
 			end
 			adj_layers[:,:,l] = adj_layers[:,:,l]+adj_layers[:,:,l]'
 		end
+		
 		return adj_layers
 	end
 	
 	function split_adjacency(g::AbstractFeaturedGraph)
 		ef = fg.ef.signal
 		nv = size(fg.nf.signal)[2]
-		edge_array = [edge for edge ∈ edges(fg)][1:size(ef)[2]]
-		adj_layers = zeros(nv, nv, size(ef)[1])
+		ne = size(ef)[2]
+		nt = size(ef)[1]
+		edge_array = [edge for edge ∈ edges(fg)][1:ne]
+		adj_layers = zeros(nv, nv, nt+1)
+		adj_layers[:,:,nt+1] = ones(nv,nv).-Matrix{Float32}(I, nv, nv)
 		for edge_idx ∈ eachindex(edge_array)
 			v₁,v₂ = edge_array[edge_idx][2]
-			adj_layers[v₁,v₂,:] .= ef[:,edge_idx]
-			adj_layers[v₂,v₁,:] .= ef[:,edge_idx]
+
+			adj_layers[v₁,v₂,1:nt] .= ef[:,edge_idx]
+			adj_layers[v₂,v₁,1:nt] .= ef[:,edge_idx]
+			
+			adj_layers[v₂,v₁,nt+1] = 0
+			adj_layers[v₁,v₂,nt+1] = 0
 		end
 		return adj_layers
 	end
@@ -122,8 +134,8 @@ begin
 	X = nf'
 	X_2_norm = nf'
 	A = split_adjacency(fg)
-	A_2_norm = split_adjacency(fg)
-	sum((vec(X*X_2_norm')*vec(X*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A[:,:,i]) for i ∈ 1:3]))^4)
+	A_2 = split_adjacency(fg)
+	sum((vec(X*X_2_norm')*vec(X*X_2_norm')'.*sum([kron(A_2[:,:,i],A[:,:,i]) for i ∈ 1:3]))^4)
 end
 
 # ╔═╡ aaa6cd0f-b37d-4228-82ad-df39e0ac17bd
@@ -158,25 +170,43 @@ begin
 	
 	@functor KGNN
 
-	#function (l::KGNN)(A::AbstractArray, X::AbstractMatrix, A_norm_mx)
+	function (l::KGNN)(A::AbstractArray, X::AbstractMatrix, A_norm_mx)
 
+		nv = size(l.A_2)[1]
 		
-		#A_2_norm = stack([(relu.(tanh.(l.A_2)).*A_norm_mx)[:,:,i]+((relu.(tanh.(l.A_2)).*A_norm_mx)[:,:,i])' for i ∈ 1:l.num_edge_types])
-		#X_2_norm = l.X_2./sum([l.X_2[:,i] for i ∈ 1:l.num_edge_types])
-
-		#return sum((vec(X*X_2_norm')*vec(X*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)/(sum((vec(X*X')*vec(X*X')'.*sum([kron(A[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)*sum((vec(X_2_norm*X_2_norm')*vec(X_2_norm*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A_2_norm[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p))^.5
-	
-	#end
-
-	function (l::KGNN)(A::AbstractArray, X::AbstractMatrix, slf_dl_mx)
-
+		n_edge_types = size(l.A_2)[3]
 		
-		A_2_norm = stack([((relu.(l.A_2).*slf_dl_mx)[:,:,i].+((relu.(l.A_2).*slf_dl_mx)[:,:,i])')./2 for i ∈ 1:l.num_edge_types])
+		A_2_herm = stack([(relu.(tanh.(l.A_2)).*A_norm_mx)[:,:,i]+((relu.(tanh.(l.A_2)).*A_norm_mx)[:,:,i])' for i ∈ 1:n_edge_types])
+		
+		A_2_adj = stack([sum([A_2_herm[:,:,i] for i ∈ 1:n_edge_types]).+Matrix{Float64}(I, nv, nv) for i ∈ 1:n_edge_types])
+		
+		A_2_norm = A_2_herm./A_2_adj
+		
 		X_2_norm = relu.(l.X_2)./sum([relu.(l.X_2)[:,i] for i ∈ 1:l.num_edge_types])
+
+		
 
 		return sum((vec(X*X_2_norm')*vec(X*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)/(sum((vec(X*X')*vec(X*X')'.*sum([kron(A[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)*sum((vec(X_2_norm*X_2_norm')*vec(X_2_norm*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A_2_norm[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p))^.5
 	
 	end
+
+	#function (l::KGNN)(A::AbstractArray, X::AbstractMatrix, slf_dl_mx)
+
+		#nv = size(l.A_2)[1]
+		
+		#n_edge_types = size(l.A_2)[3]
+		
+		#A_2_herm = stack([((relu.(l.A_2).*slf_dl_mx)[:,:,i].+((relu.(l.A_2).*slf_dl_mx)[:,:,i])')./2 for i ∈ 1:n_edge_types])
+		
+		#A_2_adj = stack([sum([A_2_herm[:,:,i] for i ∈ 1:n_edge_types]).+Matrix{Float64}(I, nv, nv) for i ∈ 1:n_edge_types])
+		
+		#A_2_norm = A_2_herm./A_2_adj
+		
+		#X_2_norm = relu.(l.X_2)./sum([relu.(l.X_2)[:,i] for i ∈ 1:l.num_edge_types])
+
+		#return sum((vec(X*X_2_norm')*vec(X*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)/(sum((vec(X*X')*vec(X*X')'.*sum([kron(A[:,:,i],A[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p)*sum((vec(X_2_norm*X_2_norm')*vec(X_2_norm*X_2_norm')'.*sum([kron(A_2_norm[:,:,i],A_2_norm[:,:,i]) for i ∈ 1:l.num_edge_types]))^l.p))^.5
+	
+	#end
 
 	function (l::KGNN)(fg::AbstractFeaturedGraph)
 		nf = node_feature(fg)
@@ -190,21 +220,21 @@ begin
 		slf_dl_mx = Zygote.ignore() do
 			self_loop_delete_mx(size(l.A_2)...)
 	    end
-	    return l(Ã, nf',slf_dl_mx)
+	    return l(Ã, nf',A_norm_mx)
 	end
 end
 
 # ╔═╡ 863ae18c-eb5e-45ab-ac0a-6ba0363a5603
 begin
-	model = KGNN(rand(4,4, 3), rand(4,3), 3, 4, relu)
-	optim = Flux.setup(Flux.Descent(0.1), model)
+	model = KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu)
+	optim = Flux.setup(Flux.Descent(1), model)
 	losses = []
 	loss = []
-	for epoch in 1:3000
+	for epoch in 1:1000
 		loss, grads = Flux.withgradient(model) do m
 			# Evaluate model and loss inside gradient context:
 			ker_norm = m(fg)
-			10-ker_norm
+			1-ker_norm
 		end
 		Flux.update!(optim, model, grads[1])
 		push!(losses, loss)  # logging, outside gradient context
@@ -218,11 +248,20 @@ plot(losses)
 # ╔═╡ 1107ffd6-347e-4c4b-bd56-e35cc445e8e1
 model(fg)
 
-# ╔═╡ eb794d90-d677-4f63-bd32-2d62a2d91584
-stack([((relu.(model.A_2).*self_loop_delete_mx(size(model.A_2)...))[:,:,i].+((relu.(model.A_2).*self_loop_delete_mx(size(model.A_2)...))[:,:,i])')./2 for i ∈ 1:model.num_edge_types])
-
-# ╔═╡ 8df304e5-5532-4372-b8bd-204450106e11
-model.A_2
+# ╔═╡ 319b6b2f-0b17-4123-8c54-895db1ec2bf7
+begin
+	A_norm_mx = triangle_dl_mx(model.A_2)
+	
+	nv = size(model.A_2)[1]
+		
+	n_edge_types = size(model.A_2)[3]
+		
+	A_2_herm = stack([(relu.(tanh.(model.A_2)).*A_norm_mx)[:,:,i]+((relu.(tanh.(model.A_2)).*A_norm_mx)[:,:,i])' for i ∈ 1:n_edge_types])
+		
+	A_2_adj = stack([sum([A_2_herm[:,:,i] for i ∈ 1:n_edge_types]).+Matrix{Float64}(I, nv, nv) for i ∈ 1:n_edge_types])
+		
+	A_2_norm = A_2_herm./A_2_adj
+end
 
 # ╔═╡ fd430464-1093-47b7-be83-d0fe14a87547
 relu.(model.X_2)./sum([relu.(model.X_2)[:,i] for i ∈ 1:model.num_edge_types])
@@ -232,6 +271,23 @@ split_adjacency(fg)
 
 # ╔═╡ 8294c34a-f1a2-4571-8199-e78a41c22825
 X
+
+# ╔═╡ 07135b44-02cc-4813-bf36-4f3faf1a1f03
+nn = Chain(
+	Parallel(vcat, 
+		KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu),
+		KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu),
+		KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu),
+		KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu),
+		KGNN(rand(4,4, 4), rand(4,3), 3, 4, relu),
+	),
+	Dense(5 => 3, tanh),   
+    Dense(3 => 2),
+    softmax
+)
+
+# ╔═╡ 7ec7d23e-f64f-45b2-ab9e-5f78f40d2e57
+nn(fg)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2247,10 +2303,11 @@ version = "1.4.1+0"
 # ╠═1f708889-e314-4591-88ed-c885f054c6b0
 # ╠═35ed4380-8cf0-4193-9c9a-d497f0af344d
 # ╠═1107ffd6-347e-4c4b-bd56-e35cc445e8e1
-# ╠═eb794d90-d677-4f63-bd32-2d62a2d91584
-# ╠═8df304e5-5532-4372-b8bd-204450106e11
+# ╠═319b6b2f-0b17-4123-8c54-895db1ec2bf7
 # ╠═fd430464-1093-47b7-be83-d0fe14a87547
 # ╠═000a1031-fbfe-4891-a565-64d627a37a6d
 # ╠═8294c34a-f1a2-4571-8199-e78a41c22825
+# ╠═07135b44-02cc-4813-bf36-4f3faf1a1f03
+# ╠═7ec7d23e-f64f-45b2-ab9e-5f78f40d2e57
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
